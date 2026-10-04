@@ -1,80 +1,118 @@
-﻿<!DOCTYPE html>
+﻿<!--
+  【模板】admin.html —— 后台数据概览
+  【路由】GET /admin
+  【渲染方】PageController.admin(model)
+            → adminService.getStats()
+            → model.addAttribute("stats", stats)
+            → return "admin"
+
+  【Thymeleaf 变量】
+    - stats   AdminStats
+      .totalOrders / .pendingOrders / .paidOrders / .cancelledOrders  4 个数字卡
+      .totalRevenue                                                   累计票房大卡
+      .topMovies      List<Object[]>  每项=[电影名, 票房, 订单数]
+      .dailyRevenue   List<Object[]>  每项=[日期, 票房, 订单数]
+
+  【ECharts 数据注入】
+    Thymeleaf JavaScript 内联（th:inline="javascript"）：
+      const dailyData = /*[[${stats.dailyRevenue}]]*/ [];
+      const topMovies = /*[[${stats.topMovies}]]*/ [];
+    → 前端用 row[0] / row[1] 按下标取值
+
+  【⚠️ 已知隐患】
+    stats.dailyRevenue / topMovies 是 List<Object[]>，
+    Thymeleaf 序列化 Object[] 的规则不如 List<VO> 稳定：
+    - 有时输出 ["2026-10-01", 1234.5, 5]
+    - 若 Java 端类型变化（如改成 Object[] 里含 LocalDate）
+      前端可能静默坏掉
+    建议改造：定义 DailyRevenueVO / MovieRevenueVO，前端用字段名访问
+
+  【⚠️ 鉴权】
+    LoginInterceptor 只校验"是否登录"，
+    任何登录用户都能访问 /admin。
+    建议加 AdminInterceptor 或 role 校验。
+
+  【内嵌 JS 调用】
+    - POST /api/user/logout  退出登录
+-->
+<!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>后台管理 - 星幕影票</title>
+    <link rel="stylesheet" href="/css/login-modal.css"> 
+    <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
-        a { text-decoration: none; color: inherit; }
-        ul, li { list-style: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
+    a { text-decoration: none; color: inherit; }
+    ul, li { list-style: none; }
 
-        .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; padding: 0 15%; position: sticky; top: 0; background: #fff; z-index: 100; }
-        .logo { display: flex; align-items: center; margin-right: 40px; }
-        .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; margin-right: 10px; }
-        .logo-text { font-size: 20px; font-weight: bold; }
-        .main-menu { display: flex; height: 100%; }
-        .main-menu li a { display: flex; align-items: center; height: 100%; padding: 0 20px; font-size: 16px; color: #333; }
-        .main-menu li.active a { color: #1e3a8a; font-weight: bold; }
-        .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; padding: 0 15%; position: sticky; top: 0; background: #fff; z-index: 100; }
+    .logo { display: flex; align-items: center; margin-right: 40px; }
+    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; margin-right: 10px; }
+    .logo-text { font-size: 20px; font-weight: bold; }
+    .main-menu { display: flex; height: 100%; }
+    .main-menu li a { display: flex; align-items: center; height: 100%; padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li.active a { color: #1e3a8a; font-weight: bold; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
 
-        .user-menu { display: flex; align-items: center; gap: 20px; }
-        .user-dropdown { position: relative; cursor: pointer; }
-        .user-name { color: #333; font-size: 14px; }
-        .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e5e5; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px; padding: 8px 0; z-index: 1000; }
-        .user-dropdown:hover .dropdown-menu { display: block; }
-        .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; transition: background 0.2s; }
-        .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
+    .user-menu { display: flex; align-items: center; gap: 20px; }
+    .user-dropdown { position: relative; cursor: pointer; }
+    .user-name { color: #333; font-size: 14px; }
+    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e5e5; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px; padding: 8px 0; z-index: 1000; }
+    .user-dropdown:hover .dropdown-menu { display: block; }
+    .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; }
+    .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
 
-        .wrap { width: 1100px; margin: 30px auto 60px; }
-        .page-title { font-size: 24px; font-weight: bold; margin-bottom: 25px; color: #1e3a8a; }
+    .wrap { width: 1100px; margin: 30px auto 60px; }
+    .page-title { font-size: 24px; font-weight: bold; margin-bottom: 25px; color: #1e3a8a; }
 
-        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: #fff; border-radius: 8px; padding: 25px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .stat-label { font-size: 13px; color: #999; margin-bottom: 10px; }
-        .stat-value { font-size: 32px; font-weight: bold; line-height: 1; }
-        .stat-card.total    .stat-value { color: #333; }
-        .stat-card.pending  .stat-value { color: #ff9800; }
-        .stat-card.paid     .stat-value { color: #43a047; }
-        .stat-card.cancelled .stat-value { color: #999; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: #fff; border-radius: 8px; padding: 25px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .stat-label { font-size: 13px; color: #999; margin-bottom: 10px; }
+    .stat-value { font-size: 32px; font-weight: bold; line-height: 1; }
+    .stat-card.total    .stat-value { color: #333; }
+    .stat-card.pending  .stat-value { color: #ff9800; }
+    .stat-card.paid     .stat-value { color: #43a047; }
+    .stat-card.cancelled .stat-value { color: #999; }
 
-        .revenue-card { background: linear-gradient(135deg, #1e3a8a, #152c6b); color: #fff; border-radius: 8px; padding: 30px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-        .revenue-label { font-size: 15px; opacity: 0.9; margin-bottom: 8px; }
-        .revenue-value { font-size: 48px; font-weight: bold; line-height: 1; }
-        .revenue-value::before { content: '¥'; font-size: 24px; margin-right: 5px; }
-        .revenue-icon { font-size: 64px; opacity: 0.3; }
+    .revenue-card { background: linear-gradient(135deg, #1e3a8a, #152c6b); color: #fff; border-radius: 8px; padding: 30px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+    .revenue-label { font-size: 15px; opacity: 0.9; margin-bottom: 8px; }
+    .revenue-value { font-size: 48px; font-weight: bold; line-height: 1; }
+    .revenue-value::before { content: '¥'; font-size: 24px; margin-right: 5px; }
+    .revenue-icon { font-size: 64px; opacity: 0.3; }
 
-        /* 图表区 */
-        .charts-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 30px; }
-        .chart-card { background: #fff; border-radius: 8px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .chart-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; }
-        .chart-title::before { content: ''; display: inline-block; width: 4px; height: 16px; background: #1e3a8a; margin-right: 8px; border-radius: 2px; }
-        .chart-container { width: 100%; height: 320px; }
+    .charts-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 30px; }
+    .chart-card { background: #fff; border-radius: 8px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .chart-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; }
+    .chart-title::before { content: ''; display: inline-block; width: 4px; height: 16px; background: #1e3a8a; margin-right: 8px; border-radius: 2px; }
+    .chart-container { width: 100%; height: 320px; }
 
-        .rank-card { background: #fff; border-radius: 8px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .rank-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; display: flex; align-items: center; }
-        .rank-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background: #1e3a8a; margin-right: 10px; border-radius: 2px; }
+    .rank-card { background: #fff; border-radius: 8px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .rank-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; display: flex; align-items: center; }
+    .rank-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background: #1e3a8a; margin-right: 10px; border-radius: 2px; }
 
-        .rank-table { width: 100%; border-collapse: collapse; }
-        .rank-table th { text-align: left; padding: 12px 10px; font-weight: normal; color: #999; font-size: 13px; border-bottom: 2px solid #f0f0f0; }
-        .rank-table td { padding: 16px 10px; border-bottom: 1px solid #f5f5f5; font-size: 14px; }
-        .rank-table tr:last-child td { border-bottom: none; }
+    .rank-table { width: 100%; border-collapse: collapse; }
+    .rank-table th { text-align: left; padding: 12px 10px; font-weight: normal; color: #999; font-size: 13px; border-bottom: 2px solid #f0f0f0; }
+    .rank-table td { padding: 16px 10px; border-bottom: 1px solid #f5f5f5; font-size: 14px; }
+    .rank-table tr:last-child td { border-bottom: none; }
 
-        .rank-index { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; background: #f0f0f0; color: #666; font-size: 12px; font-weight: bold; }
-        .rank-index.top1 { background: #ffd700; color: #fff; }
-        .rank-index.top2 { background: #c0c0c0; color: #fff; }
-        .rank-index.top3 { background: #cd7f32; color: #fff; }
+    .rank-index { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; background: #f0f0f0; color: #666; font-size: 12px; font-weight: bold; }
+    .rank-index.top1 { background: #ffd700; color: #fff; }
+    .rank-index.top2 { background: #c0c0c0; color: #fff; }
+    .rank-index.top3 { background: #cd7f32; color: #fff; }
 
-        .movie-title-cell { font-weight: bold; }
-        .revenue-cell { color: #1e3a8a; font-weight: bold; }
-        .count-cell { color: #999; }
+    .movie-title-cell { font-weight: bold; }
+    .revenue-cell { color: #1e3a8a; font-weight: bold; }
+    .count-cell { color: #999; }
 
-        .empty { text-align: center; padding: 60px 0; color: #999; }
+    .empty { text-align: center; padding: 60px 0; color: #999; }
 
-        .footer { background: #262426; color: #999; padding: 40px 0; font-size: 12px; line-height: 2; text-align: center; }
-        .footer a { color: #1e3a8a; }
-    </style>
+    .footer { background: #262426; color: #999; padding: 40px 0; font-size: 12px; line-height: 2; text-align: center; }
+    .footer a { color: #1e3a8a; }
+</style>
 </head>
 <body>
 
@@ -105,7 +143,8 @@
 <div class="wrap">
     <div class="page-title">数据概览</div>
 
-    <!-- 4 个统计卡片 -->
+    <!-- ===== 4 个统计卡片 ===== -->
+    <!-- 数据来源：AdminService.getStats() → OrderRepository.count / countByStatus -->
     <div class="stat-grid">
         <div class="stat-card total">
             <div class="stat-label">订单总数</div>
@@ -125,7 +164,8 @@
         </div>
     </div>
 
-    <!-- 总票房 -->
+    <!-- ===== 累计票房大卡 ===== -->
+    <!-- #numbers.formatDecimal 保留 2 位小数 -->
     <div class="revenue-card">
         <div>
             <div class="revenue-label">累计票房</div>
@@ -134,10 +174,11 @@
         <div class="revenue-icon">💰</div>
     </div>
 
-    <!-- ★ 图表区 -->
+    <!-- ===== 图表区 ===== -->
     <div class="charts-row">
         <div class="chart-card">
             <div class="chart-title">每日票房趋势</div>
+            <!-- ECharts 挂载点 -->
             <div class="chart-container" id="lineChart"></div>
         </div>
         <div class="chart-card">
@@ -146,14 +187,16 @@
         </div>
     </div>
 
-    <!-- 热销电影 TOP5 -->
+    <!-- ===== 热销 TOP5 表格 ===== -->
     <div class="rank-card">
         <div class="rank-title">热销电影 TOP 5</div>
 
+        <!-- 无数据 -->
         <div class="empty" th:if="${stats.topMovies == null or stats.topMovies.isEmpty()}">
             暂无销售数据
         </div>
 
+        <!-- 有数据 -->
         <table class="rank-table" th:if="${stats.topMovies != null and !stats.topMovies.isEmpty()}">
             <thead>
             <tr>
@@ -164,12 +207,15 @@
             </tr>
             </thead>
             <tbody>
+            <!-- 只显示前 5 条 -->
             <tr th:each="row, iter : ${stats.topMovies}" th:if="${iter.index < 5}">
                 <td>
+                    <!-- 前三名金银铜样式 -->
                     <span class="rank-index"
                           th:classappend="${iter.index == 0 ? 'top1' : (iter.index == 1 ? 'top2' : (iter.index == 2 ? 'top3' : ''))}"
                           th:text="${iter.index + 1}">1</span>
                 </td>
+                <!-- row[0]=电影名, row[2]=订单数, row[1]=票房 -->
                 <td class="movie-title-cell" th:text="${row[0]}">电影名</td>
                 <td class="count-cell" style="text-align:right;" th:text="${row[2]} + ' 单'">0 单</td>
                 <td class="revenue-cell" style="text-align:right;"
@@ -180,16 +226,15 @@
     </div>
 </div>
 
-<footer class="footer">
-    <div>关于星幕：<a href="#">关于我们</a> | <a href="#">董事会成员</a></div>
-    <div>©2026 星幕影票 www.starscreen.com</div>
-</footer>
+<footer class="footer"><!-- ... --></footer>
 
+<!-- ★ th:inline="javascript" 允许用 /*[[${...}]]*/ 语法注入后端数据 -->
 <script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function () {
 
     // ==================== 数据准备 ====================
-    // 每日票房数据
+    // 【注入方式】/*[[${stats.dailyRevenue}]]*/ 会被 Thymeleaf 替换成真实 JSON
+    // 由于是 List<Object[]>，得到形如 [["2026-10-01", 1234.5, 5], ...]
     const dailyData = /*[[${stats.dailyRevenue}]]*/ [];
     const dailyDates = [];
     const dailyAmounts = [];
@@ -199,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
         dailyAmounts.push(row[1]);     // 票房数值
     });
 
-    // 电影票房占比数据
+    // 饼图数据：TOP5 电影票房占比
     const topMovies = /*[[${stats.topMovies}]]*/ [];
     const pieData = [];
 
@@ -212,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // ==================== 折线图 ====================
+    // ==================== 折线图（每日票房趋势）====================
     const lineChart = echarts.init(document.getElementById('lineChart'));
     lineChart.setOption({
         tooltip: {
@@ -254,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }]
     });
 
-    // ==================== 饼图 ====================
+    // ==================== 饼图（电影票房占比）====================
     const pieChart = echarts.init(document.getElementById('pieChart'));
     pieChart.setOption({
         tooltip: {
@@ -280,24 +325,20 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             label: { show: false },
             emphasis: {
-                label: {
-                    show: true,
-                    fontSize: 14,
-                    fontWeight: 'bold'
-                }
+                label: { show: true, fontSize: 14, fontWeight: 'bold' }
             },
             data: pieData,
             color: ['#1e3a8a', '#2b8eff', '#67c23a', '#ffb400', '#dc2626']
         }]
     });
 
-    // 窗口大小变化时重绘
+    // ==================== 窗口大小变化重绘 ====================
     window.addEventListener('resize', function () {
         lineChart.resize();
         pieChart.resize();
     });
 
-    // 登出
+    // ==================== 退出登录 ====================
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function () {

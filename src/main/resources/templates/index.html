@@ -2,300 +2,364 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>星幕影票 - 娱乐看星幕</title>
+    <title>星幕影票 - 让每一次观影都值得</title>
+    <link rel="stylesheet" href="/css/login-modal.css"> 
+    <script src="/js/auth.js" defer></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #fff; color: #333; font-size: 14px; }
-        a { text-decoration: none; color: inherit; }
-        ul, li { list-style: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
+    a { text-decoration: none; color: inherit; }
+    ul, li { list-style: none; }
 
-        .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; padding: 0 15%; position: sticky; top: 0; background: #fff; z-index: 100; }
-        .logo { display: flex; align-items: center; margin-right: 40px; }
-        .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; margin-right: 10px; }
-        .logo-text { font-size: 20px; font-weight: bold; }
-        .main-menu { display: flex; height: 100%; }
-        .main-menu li { height: 100%; }
-        .main-menu li a { display: flex; align-items: center; height: 100%; padding: 0 20px; font-size: 16px; color: #333; }
-        .main-menu li.active a { background: #1e3a8a; color: #fff; }
-        .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-        .nav-right > div { cursor: pointer; }
+    /* ===== 顶部导航 ===== */
+    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex;
+               align-items: center; padding: 0 15%; position: sticky; top: 0;
+               background: #fff; z-index: 100; }
+    .logo { display: flex; align-items: center; margin-right: 40px; }
+    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%;
+                 color: #fff; display: flex; justify-content: center; align-items: center;
+                 font-weight: bold; font-size: 18px; margin-right: 10px; }
+    .logo-text { font-size: 20px; font-weight: bold; }
+    .main-menu { display: flex; height: 100%; }
+    .main-menu li a { display: flex; align-items: center; height: 80px;
+                      padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li.active a { color: #1e3a8a; font-weight: bold; }
+    .main-menu li a:hover { color: #1e3a8a; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+    .user-area { display: flex; align-items: center; gap: 20px; }
+    .user-dropdown { position: relative; cursor: pointer; }
+    .user-name { color: #333; font-size: 14px; }
+    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0;
+                     background: #fff; border: 1px solid #e5e5e5; border-radius: 4px;
+                     box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px;
+                     padding: 8px 0; z-index: 1000; }
+    .user-dropdown:hover .dropdown-menu { display: block; }
+    .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; }
+    .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
 
-        /* 搜索框 */
-        .search-box { margin-left: 20px; display: flex; }
-        .search-box input { width: 200px; height: 36px; border: 1px solid #ddd; border-radius: 18px 0 0 18px; padding: 0 15px; font-size: 14px; outline: none; transition: border-color 0.3s; }
-        .search-box input:focus { border-color: #1e3a8a; }
-        .search-box button { height: 36px; padding: 0 20px; border: none; background: #1e3a8a; color: #fff; border-radius: 0 18px 18px 0; font-size: 14px; cursor: pointer; transition: background 0.3s; }
-        .search-box button:hover { background: #152c6b; }
+    /* ===== 搜索栏 ===== */
+    .search-bar { background: #1e3a8a; padding: 30px 15%; display: flex;
+                  align-items: center; gap: 15px; }
+    .search-bar input {
+        flex: 1; max-width: 500px; height: 44px;
+        border: none; border-radius: 22px; padding: 0 22px;
+        font-size: 14px; outline: none;
+    }
+    .search-bar button {
+        height: 44px; padding: 0 30px; border: none; border-radius: 22px;
+        background: #152c6b; color: #fff; font-size: 14px; cursor: pointer;
+    }
 
-        /* 用户菜单 */
-        .user-menu { display: flex; align-items: center; gap: 20px; }
-        .user-dropdown { position: relative; cursor: pointer; }
-        .user-name { color: #333; font-size: 14px; }
-        .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e5e5; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px; padding: 8px 0; z-index: 1000; }
-        .user-dropdown:hover .dropdown-menu { display: block; }
-        .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; transition: background 0.2s; }
-        .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
+    /* ===== 主体 ===== */
+    .container { width: 1200px; margin: 30px auto 60px; display: flex; gap: 30px; }
+    .main { flex: 1; min-width: 0; }
+    .sidebar { width: 300px; flex-shrink: 0; }
 
-        .container { width: 1200px; margin: 0 auto; padding-top: 40px; display: flex; justify-content: space-between; }
-        .main-content { width: 840px; }
-        .sidebar { width: 330px; }
+    .section { background: #fff; border-radius: 8px; padding: 24px; margin-bottom: 24px;
+               box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .section-title { font-size: 20px; font-weight: bold; margin-bottom: 20px;
+                     display: flex; align-items: center; color: #1e3a8a; }
+    .section-title::before { content: ''; display: inline-block; width: 4px; height: 20px;
+                             background: #1e3a8a; margin-right: 10px; border-radius: 2px; }
+    .section-title .more { margin-left: auto; font-size: 13px; color: #999; font-weight: normal; }
 
-        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .section-title h2 { font-size: 26px; font-weight: normal; color: #1e3a8a; }
-        .section-title .more-link { color: #1e3a8a; font-size: 14px; cursor: pointer; }
+    .movie-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .movie-card { cursor: pointer; transition: transform 0.2s; }
+    .movie-card:hover { transform: translateY(-4px); }
+    .movie-poster { width: 100%; aspect-ratio: 3 / 4; border-radius: 6px; background: #f0f0f0;
+                    background-size: cover; background-position: center; position: relative;
+                    overflow: hidden; }
+    .poster-tag { position: absolute; top: 6px; left: 6px; background: #2b8eff;
+                  color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 2px; }
+    .movie-title { margin-top: 10px; font-size: 14px; font-weight: bold;
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .movie-meta { margin-top: 4px; font-size: 12px; color: #999;
+                  display: flex; justify-content: space-between; }
+    .movie-score { color: #ffb400; font-weight: bold; }
 
-        .movie-grid { display: flex; flex-wrap: wrap; gap: 30px 20px; }
-        .movie-card { width: 200px; display: flex; flex-direction: column; }
+    /* 卡片操作按钮区 */
+    .movie-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+    }
+    .movie-actions .btn-buy {
+        flex: 1;
+        height: 32px;
+        line-height: 32px;
+        text-align: center;
+        background: #1e3a8a;
+        color: #fff;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: bold;
+        transition: background 0.2s;
+    }
+    .movie-actions .btn-buy:hover { background: #152c6b; }
+    .movie-actions .btn-detail {
+        width: 60px;
+        height: 32px;
+        line-height: 30px;
+        text-align: center;
+        background: #fff;
+        color: #1e3a8a;
+        border: 1px solid #1e3a8a;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+    .movie-actions .btn-detail:hover { background: #eef2ff; }
 
-        .poster-wrapper { width: 100%; height: 280px; position: relative; overflow: hidden; }
-        .poster-img { width: 100%; height: 100%; background-size: cover; background-position: center; background-color: #f0f0f0; }
-        .poster-tag { position: absolute; top: 5px; left: 5px; background: #2b8eff; color: #fff; font-size: 10px; padding: 2px 5px; border-radius: 2px; }
-        .poster-bottom-info { position: absolute; bottom: 0; left: 0; width: 100%; padding: 5px 10px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .poster-score { position: absolute; bottom: 5px; right: 5px; color: #ffb400; font-size: 16px; font-weight: bold; }
+    /* ===== 侧边栏 ===== */
+    .side-card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px;
+                 box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .side-title { font-size: 16px; font-weight: bold; margin-bottom: 15px;
+                  display: flex; align-items: center; color: #1e3a8a; }
+    .side-title::before { content: ''; display: inline-block; width: 3px; height: 16px;
+                          background: #1e3a8a; margin-right: 8px; border-radius: 2px; }
 
-        .card-actions { display: flex; border: 1px solid #e5e5e5; border-top: none; height: 40px; }
-        .action-btn { flex: 1; display: flex; justify-content: center; align-items: center; color: #1e3a8a; font-size: 14px; cursor: pointer; border-right: 1px solid #e5e5e5; }
-        .action-btn:last-child { border-right: none; }
-        .card-subtext { text-align: center; color: #999; font-size: 12px; margin-top: 5px; }
+    .rank-item { display: flex; align-items: center; padding: 10px 0;
+                 border-bottom: 1px solid #f5f5f5; font-size: 14px; }
+    .rank-item:last-child { border-bottom: none; }
+    .rank-num { width: 22px; height: 22px; line-height: 22px; text-align: center;
+                border-radius: 50%; background: #f0f0f0; color: #666;
+                font-size: 12px; font-weight: bold; margin-right: 10px; flex-shrink: 0; }
+    .rank-num.top1 { background: #ffd700; color: #fff; }
+    .rank-num.top2 { background: #c0c0c0; color: #fff; }
+    .rank-num.top3 { background: #cd7f32; color: #fff; }
+    .rank-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-value { color: #1e3a8a; font-weight: bold; font-size: 13px; }
 
-        .sidebar-section { margin-bottom: 30px; }
-        .box-office-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px dashed #e5e5e5; }
-        .rank-num { width: 30px; text-align: center; font-size: 18px; color: #999; font-weight: bold; }
-        .rank-num.top3 { color: #1e3a8a; }
-        .box-office-name { flex: 1; margin-left: 10px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .box-office-amount { color: #1e3a8a; font-size: 14px; }
-        .daily-total { background: #f8f8f8; padding: 20px; display: flex; align-items: center; margin-top: 20px; }
-        .daily-total-label { background: #1e3a8a; color: #fff; padding: 10px 15px; margin-right: 20px; }
-        .daily-total-data { font-size: 28px; color: #1e3a8a; font-weight: bold; }
-        .daily-total-unit { font-size: 14px; color: #1e3a8a; margin-left: 5px; }
-        .daily-total-info { margin-left: auto; text-align: right; font-size: 12px; color: #999; }
+    .empty { text-align: center; padding: 60px 0; color: #999; }
 
-        .expected-item { display: flex; padding: 15px 0; border-bottom: 1px solid #e5e5e5; }
-        .expected-rank { font-size: 18px; font-weight: bold; color: #ffb400; width: 30px; text-align: center; margin-right: 10px; }
-        .expected-info { flex: 1; }
-        .expected-title { font-size: 16px; margin-bottom: 5px; }
-        .expected-want { font-size: 12px; color: #ffb400; }
-
-        .top100-item { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #e5e5e5; font-size: 16px; }
-        .top100-rank { color: #ffb400; font-weight: bold; margin-right: 15px; width: 20px; }
-        .top100-score { color: #ffb400; font-weight: bold; }
-
-        .footer { background: #262426; color: #999; padding: 40px 0; margin-top: 60px; font-size: 12px; line-height: 2; text-align: center; }
-        .footer a { color: #1e3a8a; margin: 0 5px; }
-        .footer-imgs { margin-top: 20px; display: flex; justify-content: center; gap: 10px; }
-        .footer-img-placeholder { width: 80px; height: 30px; background: #444; border-radius: 3px; }
-
-        .floating-ad { position: fixed; bottom: 20px; left: 20px; width: 160px; height: 200px; background: #1e3a8a; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 12px; z-index: 1000; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .qr-placeholder { width: 100px; height: 100px; background: #fff; margin-top: 10px; border-radius: 5px; }
-
-        .empty-search { text-align: center; padding: 80px 0; color: #999; }
-        .empty-search .icon { font-size: 48px; margin-bottom: 20px; opacity: 0.3; }
-        .empty-search .text { font-size: 16px; margin-bottom: 10px; }
-        .empty-search .keyword { color: #1e3a8a; font-weight: bold; }
+    .footer { background: #262426; color: #999; padding: 40px 0; font-size: 12px;
+              line-height: 2; text-align: center; }
+    .footer a { color: #93c5fd; margin: 0 5px; }
     </style>
 </head>
 <body>
 
-    <header class="top-nav">
-        <div class="logo">
-            <div class="logo-icon">星</div>
-            <div class="logo-text">星幕影票</div>
+<!-- ===== 顶部导航 ===== -->
+<header class="top-nav">
+    <a th:href="@{/}" class="logo">
+        <div class="logo-icon">星</div>
+        <div class="logo-text">星幕影票</div>
+    </a>
+    <ul class="main-menu">
+        <li class="active"><a th:href="@{/}">首页</a></li>
+        <li><a th:href="@{/}">电影</a></li>
+        <li><a th:href="@{/}">影院</a></li>
+        <li><a href="#">演出</a></li>
+    </ul>
+
+    <!-- 服务端渲染登录态 -->
+    <div class="nav-right">
+        <!-- 未登录 -->
+        <div th:if="${session.username == null}" class="user-area">
+            <a th:href="@{/login}"
+               style="color:#1e3a8a;font-weight:bold;font-size:14px;">
+                登录 / 注册 ▼
+            </a>
         </div>
-        <ul class="main-menu">
-            <li class="active"><a th:href="@{/}">首页</a></li>
-            <li><a th:href="@{/}">电影</a></li>
-            <li><a href="#">影院</a></li>
-            <li><a href="#">演出</a></li>
-        </ul>
-        <form class="search-box" th:action="@{/}" method="get">
-            <input type="text" name="keyword" placeholder="搜索电影"
-                   th:value="${keyword != null ? keyword : ''}">
-            <button type="submit">搜索</button>
-        </form>
-        <div class="nav-right">
-            <div>📱 APP下载 ▼</div>
 
-            <!-- 未登录 -->
-            <div th:if="${session.username == null}">
-                <a th:href="@{/login}" style="color:#1e3a8a; font-weight:bold;">登录 / 注册</a>
+        <!-- 已登录 -->
+        <div th:if="${session.username != null}" class="user-area">
+            <a th:href="@{/orders}"
+               style="color:#1e3a8a;font-size:14px;">
+                🎟️ 我的订单
+            </a>
+            <div class="user-dropdown">
+                <span class="user-name">
+                    👤 <span th:text="${session.username}">用户名</span> ▼
+                </span>
+                <div class="dropdown-menu">
+                    <a th:href="@{/orders}">我的订单</a>
+                    <a th:href="@{/admin}">后台管理</a>
+                    <a href="javascript:void(0)" onclick="openBindModal()">绑定账号</a>
+                    <a href="javascript:void(0)" onclick="doLogout()">退出登录</a>
+                </div>
             </div>
+        </div>
+    </div>
+</header>
 
-            <!-- 已登录 -->
-            <div th:if="${session.username != null}" class="user-menu">
-                <a th:href="@{/orders}"><span style="color:#1e3a8a;">🎟️ 我的订单</span></a>
-                <div class="user-dropdown">
-                    <span class="user-name">👤 <span th:text="${session.username}">用户名</span> ▼</span>
-                    <div class="dropdown-menu">
-                        <a th:href="@{/orders}">我的订单</a>
-                        <a href="javascript:void(0)" id="logoutBtn">退出登录</a>
+<!-- ===== 搜索栏 ===== -->
+<form class="search-bar" method="get" th:action="@{/}">
+    <input type="text" name="keyword" placeholder="搜索电影名…"
+           th:value="${keyword}">
+    <button type="submit">搜索</button>
+</form>
+
+<!-- ===== 主体 ===== -->
+<div class="container">
+    <main class="main">
+
+        <!-- 搜索结果模式 -->
+        <div class="section" th:if="${isSearching}">
+            <div class="section-title">
+                搜索结果：<span th:text="${keyword}" style="margin-left:6px;">关键词</span>
+                <a th:href="@{/}" class="more">返回首页</a>
+            </div>
+            <div class="empty" th:if="${searchResults == null or searchResults.isEmpty()}">
+                没有找到匹配的电影
+            </div>
+            <div class="movie-grid" th:if="${searchResults != null and !searchResults.isEmpty()}">
+                <div th:each="m : ${searchResults}" class="movie-card">
+                    <a th:href="@{/movie/detail/{id}(id=${m.id})}">
+                        <div class="movie-poster"
+                             th:style="'background-image: url(' + ${m.poster} + ');'">
+                            <div class="poster-tag" th:if="${m.tag != null}" th:text="${m.tag}">2D</div>
+                        </div>
+                        <div class="movie-title" th:text="${m.title}">电影名</div>
+                        <div class="movie-meta">
+                            <span th:text="${m.releaseDate}">日期</span>
+                            <span class="movie-score"
+                                  th:text="${m.score != null ? m.score : '--'}">9.5</span>
+                        </div>
+                    </a>
+                    <div class="movie-actions">
+                        <a class="btn-buy"
+                           th:href="@{/cinemas/{id}(id=${m.id})}">选座购票</a>
+                        <a class="btn-detail"
+                           th:href="@{/movie/detail/{id}(id=${m.id})}">详情</a>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
 
-    <div class="container">
-        <main class="main-content">
+        <!-- 非搜索模式 -->
+        <div th:unless="${isSearching}">
 
-            <div th:if="${isSearching}">
-                <div class="section-title">
-                    <h2>搜索 "<span th:text="${keyword}">关键词</span>" 的结果
-                        (<span th:text="${searchResults.size()}">0</span>部)</h2>
-                    <a th:href="@{/}" class="more-link">返回首页 ></a>
+            <!-- 正在热映 -->
+            <div class="section">
+                <div class="section-title">正在热映</div>
+                <div class="empty" th:if="${showingMovies == null or showingMovies.isEmpty()}">
+                    暂无正在热映的电影
                 </div>
-
-                <div class="movie-grid" th:if="${!searchResults.isEmpty()}">
-                    <div class="movie-card" th:each="movie : ${searchResults}">
-                        <a th:href="@{/movie/detail/{id}(id=${movie.id})}">
-                            <div class="poster-wrapper">
-                                <div class="poster-tag" th:if="${movie.tag != null}" th:text="${movie.tag}">2DIMAX</div>
-                                <div class="poster-img"
-                                     th:style="'background-image: url(' + ${movie.poster} + '); background-size: cover; background-position: center;'"></div>
-                                <div class="poster-bottom-info" th:text="${movie.title}">电影名</div>
-                                <div class="poster-score" th:if="${movie.score != null}" th:text="${movie.score}">9.5</div>
+                <div class="movie-grid" th:if="${showingMovies != null and !showingMovies.isEmpty()}">
+                    <div th:each="m : ${showingMovies}" class="movie-card">
+                        <a th:href="@{/movie/detail/{id}(id=${m.id})}">
+                            <div class="movie-poster"
+                                 th:style="'background-image: url(' + ${m.poster} + ');'">
+                                <div class="poster-tag" th:if="${m.tag != null}" th:text="${m.tag}">2D</div>
+                            </div>
+                            <div class="movie-title" th:text="${m.title}">电影名</div>
+                            <div class="movie-meta">
+                                <span th:text="${m.releaseDate}">日期</span>
+                                <span class="movie-score"
+                                      th:text="${m.score != null ? m.score : '--'}">9.5</span>
                             </div>
                         </a>
-                        <div class="card-actions">
-                            <a th:href="@{/cinemas/{id}(id=${movie.id})}" class="action-btn">购票</a>
+                        <div class="movie-actions">
+                            <a class="btn-buy"
+                               th:href="@{/cinemas/{id}(id=${m.id})}">选座购票</a>
+                            <a class="btn-detail"
+                               th:href="@{/movie/detail/{id}(id=${m.id})}">详情</a>
                         </div>
                     </div>
                 </div>
-
-                <div class="empty-search" th:if="${searchResults.isEmpty()}">
-                    <div class="icon">🔍</div>
-                    <div class="text">没有找到与 <span class="keyword" th:text="${keyword}">xx</span> 相关的电影</div>
-                    <div><a th:href="@{/}" style="color:#1e3a8a;">返回首页看全部电影</a></div>
-                </div>
             </div>
 
-            <div th:if="${!isSearching}">
-                <section>
-                    <div class="section-title">
-                        <h2>正在热映 (<span th:text="${showingMovies.size()}">0</span>部)</h2>
-                        <span class="more-link">全部 ></span>
-                    </div>
-                    <div class="movie-grid">
-                        <div class="movie-card" th:each="movie : ${showingMovies}">
-                            <a th:href="@{/movie/detail/{id}(id=${movie.id})}">
-                                <div class="poster-wrapper">
-                                    <div class="poster-tag" th:if="${movie.tag != null}" th:text="${movie.tag}">2DIMAX</div>
-                                    <div class="poster-img"
-                                         th:style="'background-image: url(' + ${movie.poster} + '); background-size: cover; background-position: center;'"></div>
-                                    <div class="poster-bottom-info" th:text="${movie.title}">电影名</div>
-                                    <div class="poster-score" th:if="${movie.score != null}" th:text="${movie.score}">9.5</div>
-                                </div>
-                            </a>
-                            <div class="card-actions">
-                                <a th:href="@{/cinemas/{id}(id=${movie.id})}" class="action-btn">购票</a>
+            <!-- 即将上映 -->
+            <div class="section">
+                <div class="section-title">即将上映</div>
+                <div class="empty" th:if="${upcomingMovies == null or upcomingMovies.isEmpty()}">
+                    暂无即将上映的电影
+                </div>
+                <div class="movie-grid" th:if="${upcomingMovies != null and !upcomingMovies.isEmpty()}">
+                    <div th:each="m : ${upcomingMovies}" class="movie-card">
+                        <a th:href="@{/movie/detail/{id}(id=${m.id})}">
+                            <div class="movie-poster"
+                                 th:style="'background-image: url(' + ${m.poster} + ');'">
+                                <div class="poster-tag" th:if="${m.tag != null}" th:text="${m.tag}">2D</div>
                             </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section style="margin-top: 50px;">
-                    <div class="section-title">
-                        <h2>即将上映 (<span th:text="${upcomingMovies.size()}">0</span>部)</h2>
-                        <span class="more-link">全部 ></span>
-                    </div>
-                    <div class="movie-grid">
-                        <div class="movie-card" th:each="movie : ${upcomingMovies}">
-                            <a th:href="@{/movie/detail/{id}(id=${movie.id})}">
-                                <div class="poster-wrapper">
-                                    <div class="poster-tag" th:if="${movie.tag != null}" th:text="${movie.tag}">2DIMAX</div>
-                                    <div class="poster-img"
-                                         th:style="'background-image: url(' + ${movie.poster} + '); background-size: cover; background-position: center;'"></div>
-                                    <div class="poster-bottom-info" th:text="${movie.title}">电影名</div>
-                                </div>
-                            </a>
-                            <div class="card-subtext" th:if="${movie.wantCount != null}"
-                                 th:text="${movie.wantCount} + '人想看'">1234人想看</div>
-                            <div class="card-actions">
-                                <div class="action-btn">预告片</div>
-                                <a th:href="@{/cinemas/{id}(id=${movie.id})}" class="action-btn">预售</a>
+                            <div class="movie-title" th:text="${m.title}">电影名</div>
+                            <div class="movie-meta">
+                                <span th:text="${m.releaseDate}">日期</span>
+                                <span class="movie-score"
+                                      th:text="${m.wantCount != null ? m.wantCount + '人想看' : '--'}">--</span>
                             </div>
-                            <div class="card-subtext" th:text="${movie.releaseDate} + '上映'">9月23日上映</div>
+                        </a>
+                        <div class="movie-actions">
+                            <a class="btn-buy"
+                               th:href="@{/movie/detail/{id}(id=${m.id})}">查看详情</a>
                         </div>
                     </div>
-                </section>
-            </div>
-        </main>
-
-        <aside class="sidebar">
-            <div class="sidebar-section">
-                <div class="section-title"><h2>今日票房</h2></div>
-                <ul>
-                    <li class="box-office-item"><span class="rank-num top3">1</span><span class="box-office-name">奥德赛</span><span class="box-office-amount">92.56万</span></li>
-                    <li class="box-office-item"><span class="rank-num top3">2</span><span class="box-office-name">欢迎来龙餐馆</span><span class="box-office-amount">46.61万</span></li>
-                    <li class="box-office-item"><span class="rank-num top3">3</span><span class="box-office-name">空枪</span><span class="box-office-amount">30.37万</span></li>
-                    <li class="box-office-item"><span class="rank-num">4</span><span class="box-office-name">八仙！</span><span class="box-office-amount">17.36万</span></li>
-                    <li class="box-office-item"><span class="rank-num">5</span><span class="box-office-name">密档</span><span class="box-office-amount">14.12万</span></li>
-                </ul>
-                <div class="daily-total">
-                    <div class="daily-total-label">今日大盘</div>
-                    <div><span class="daily-total-data">282.7</span><span class="daily-total-unit">万</span></div>
-                    <div class="daily-total-info">
-                        <div style="color:#1e3a8a;margin-bottom:5px;">查看更多 ></div>
-                        <div>北京时间 09:50:03</div>
-                        <div>星幕专业版实时票房数据</div>
-                    </div>
                 </div>
             </div>
-            <div class="sidebar-section" style="margin-top: 40px;">
-                <div class="section-title">
-                    <h2>最受期待</h2>
-                    <span class="more-link">查看完整榜单 ></span>
-                </div>
-                <ul>
-                    <li class="expected-item"><span class="expected-rank">1</span><div class="expected-info"><div class="expected-title">复仇者联盟4：终局之战</div><div class="expected-want">2239942人想看</div></div></li>
-                    <li class="expected-item"><span class="expected-rank" style="color:#999;">2</span><div class="expected-info"><div class="expected-title">生化危机：爆发夜</div><div class="expected-want" style="color:#999;">144997人想看</div></div></li>
-                    <li class="expected-item"><span class="expected-rank" style="color:#999;">3</span><div class="expected-info"><div class="expected-title">神探之痕迹</div><div class="expected-want" style="color:#999;">91012人想看</div></div></li>
-                </ul>
-            </div>
-            <div class="sidebar-section" style="margin-top: 40px;">
-                <div class="section-title">
-                    <h2>TOP 100</h2>
-                    <span class="more-link">查看完整榜单 ></span>
-                </div>
-                <ul>
-                    <li class="top100-item"><div><span class="top100-rank">1</span>我不是药神</div><span class="top100-score">9.6分</span></li>
-                    <li class="top100-item"><div><span class="top100-rank">2</span>肖申克的救赎</div><span class="top100-score">9.8分</span></li>
-                    <li class="top100-item"><div><span class="top100-rank">3</span>海上钢琴师</div><span class="top100-score">9.3分</span></li>
-                </ul>
-            </div>
-        </aside>
-    </div>
-
-    <footer class="footer">
-        <div>关于星幕：<a href="#">关于我们</a> | <a href="#">董事会成员</a> | <a href="#">投资者关系</a></div>
-        <div>©2026 星幕影票 www.starscreen.com</div>
-        <div class="footer-imgs">
-            <div class="footer-img-placeholder"></div>
-            <div class="footer-img-placeholder"></div>
-            <div class="footer-img-placeholder"></div>
         </div>
-    </footer>
+    </main>
 
-    <div class="floating-ad">
-        <div>丝滑抢票上星幕</div>
-        <div>手机扫码下载星幕APP</div>
-        <div class="qr-placeholder"></div>
-    </div>
+    <!-- ===== 侧边栏 ===== -->
+    <aside class="sidebar">
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) {
-                logoutBtn.addEventListener('click', function () {
-                    if (!confirm('确定要退出登录吗？')) return;
-                    fetch('/api/user/logout', { method: 'POST' })
-                        .then(res => res.json())
-                        .then(() => { window.location.href = '/'; })
-                        .catch(() => { window.location.href = '/'; });
-                });
-            }
-        });
-    </script>
+        <div class="side-card">
+            <div class="side-title">今日票房</div>
+            <div class="empty" th:if="${boxOfficeList == null or boxOfficeList.isEmpty()}"
+                 style="padding:20px 0;font-size:13px;">暂无数据</div>
+            <div class="rank-item" th:each="b : ${boxOfficeList}">
+                <div class="rank-num"
+                     th:classappend="${b.rankNum == 1 ? 'top1' : (b.rankNum == 2 ? 'top2' : (b.rankNum == 3 ? 'top3' : ''))}"
+                     th:text="${b.rankNum}">1</div>
+                <div class="rank-name" th:text="${b.movieTitle}">电影名</div>
+                <div class="rank-value" th:text="${b.amount} + '万'">0万</div>
+            </div>
+        </div>
+
+        <div class="side-card">
+            <div class="side-title">最受期待</div>
+            <div class="empty" th:if="${expectedList == null or expectedList.isEmpty()}"
+                 style="padding:20px 0;font-size:13px;">暂无数据</div>
+            <div class="rank-item" th:each="e : ${expectedList}">
+                <div class="rank-num"
+                     th:classappend="${e.rankNum == 1 ? 'top1' : (e.rankNum == 2 ? 'top2' : (e.rankNum == 3 ? 'top3' : ''))}"
+                     th:text="${e.rankNum}">1</div>
+                <div class="rank-name" th:text="${e.movieTitle}">电影名</div>
+                <div class="rank-value" th:text="${e.wantCount} + '人'">0人</div>
+            </div>
+        </div>
+
+        <div class="side-card">
+            <div class="side-title">TOP 100 榜单</div>
+            <div class="empty" th:if="${top100List == null or top100List.isEmpty()}"
+                 style="padding:20px 0;font-size:13px;">暂无数据</div>
+            <div class="rank-item" th:each="t : ${top100List}">
+                <div class="rank-num"
+                     th:classappend="${t.rankNum == 1 ? 'top1' : (t.rankNum == 2 ? 'top2' : (t.rankNum == 3 ? 'top3' : ''))}"
+                     th:text="${t.rankNum}">1</div>
+                <div class="rank-name" th:text="${t.movieTitle}">电影名</div>
+                <div class="rank-value" th:text="${t.score}">9.5</div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<footer class="footer">
+    <div>关于星幕：<a href="#">关于我们</a> | <a href="#">董事会成员</a></div>
+    <div>©2026 星幕影票 www.starscreen.com</div>
+</footer>
+
+<!-- ★ 全局登录模态框 -->
+<div th:replace="~{fragments/login-modal :: modal}"></div>
+<!-- ★ 绑定账号模态框 -->
+<div th:replace="~{fragments/login-modal :: bindModal}"></div>
+
+<!-- ★ 兜底 doLogout：若 auth.js 未加载，这里手动定义 -->
+<script>
+if (typeof window.doLogout !== 'function') {
+    window.doLogout = function () {
+        if (!confirm('确定要退出登录吗？')) return;
+        fetch('/api/user/logout', { method: 'POST' })
+            .then(() => { window.location.href = '/'; })
+            .catch(() => { window.location.href = '/'; });
+    };
+}
+if (typeof window.openBindModal !== 'function') {
+    window.openBindModal = function () {
+        alert('绑定弹窗未加载，请确认 fragments/login-modal.html 已放到 templates/fragments/ 下');
+    };
+}
+</script>
 
 </body>
 </html>

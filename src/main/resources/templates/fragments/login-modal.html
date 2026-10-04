@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+<!-- fragment 1：全局登录模态框 -->
+<div th:fragment="modal" id="globalLoginModal" class="glm-mask">
+    <div class="glm-box">
+        <div class="glm-close" onclick="closeLoginModal()">×</div>
+        <div class="glm-title">登录星幕</div>
+
+        <div class="glm-tabs">
+            <div class="glm-tab active" id="glmTabSms">手机号验证码</div>
+            <div class="glm-tab" id="glmTabPwd">账号密码</div>
+        </div>
+
+        <div id="glmMsg" class="glm-msg"></div>
+
+        <div class="glm-panel active" id="glmPanelSms">
+            <div class="glm-row">
+                <div class="glm-input-group">
+                    <div class="glm-prefix">+86</div>
+                    <input type="tel" id="glmSmsPhone" placeholder="请输入手机号" maxlength="11">
+                </div>
+            </div>
+            <div class="glm-row">
+                <div class="glm-input-group">
+                    <input type="text" id="glmSmsCode" placeholder="请输入短信验证码" maxlength="6">
+                    <button type="button" id="glmSendBtn">发送验证码</button>
+                </div>
+            </div>
+            <button class="glm-btn" id="glmSmsLoginBtn" disabled>登录 / 注册</button>
+        </div>
+
+        <div class="glm-panel" id="glmPanelPwd">
+            <div class="glm-row">
+                <input type="text" id="glmPwdUsername" placeholder="请输入用户名" autocomplete="username">
+            </div>
+            <div class="glm-row">
+                <input type="password" id="glmPwdPassword" placeholder="请输入密码" autocomplete="current-password">
+            </div>
+            <button class="glm-btn" id="glmPwdLoginBtn" disabled>登录</button>
+            <div class="glm-switch">
+                还没有账号？<a href="/login">去登录/注册</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- fragment 2：绑定账号模态框 -->
+<div th:fragment="bindModal" id="bindAccountModal" class="glm-mask">
+    <div class="glm-box" style="width:440px;">
+        <div class="glm-close" onclick="closeBindModal()">×</div>
+        <div class="glm-title">绑定账号密码</div>
+
+        <p style="font-size:13px;color:#999;margin-bottom:20px;line-height:1.7;">
+            绑定后，您可以用用户名 + 密码登录，<br>
+            无需每次都发短信验证码。
+        </p>
+
+        <div class="glm-row">
+            <input type="text" id="bindUsername" placeholder="用户名（2~20 位）" maxlength="20">
+        </div>
+        <div class="glm-row">
+            <input type="password" id="bindPassword" placeholder="密码（8~20 位强密码）">
+        </div>
+        <div class="glm-row">
+            <input type="password" id="bindConfirm" placeholder="确认密码">
+        </div>
+
+        <div id="bindMsg" class="glm-msg"></div>
+
+        <button class="glm-btn" id="bindSubmitBtn" style="margin-top:14px;">确认绑定</button>
+    </div>
+</div>
+
+</body>
+</html>

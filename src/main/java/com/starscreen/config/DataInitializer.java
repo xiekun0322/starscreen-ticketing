@@ -1,11 +1,7 @@
 package com.starscreen.config;
 
-import com.starscreen.entity.Movie;
-import com.starscreen.entity.Schedule;
-import com.starscreen.entity.Seat;
-import com.starscreen.repository.MovieRepository;
-import com.starscreen.repository.ScheduleRepository;
-import com.starscreen.repository.SeatRepository;
+import com.starscreen.entity.*;
+import com.starscreen.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +21,9 @@ public class DataInitializer implements CommandLineRunner {
     private final MovieRepository movieRepository;
     private final ScheduleRepository scheduleRepository;
     private final SeatRepository seatRepository;
+    private final DailyBoxOfficeRepository dailyBoxOfficeRepository;
+    private final ExpectedMovieRepository expectedMovieRepository;
+    private final Top100MovieRepository top100MovieRepository;
 
     @Override
     public void run(String... args) throws Exception {
@@ -35,6 +34,7 @@ public class DataInitializer implements CommandLineRunner {
 
         log.info("====== 开始初始化数据 ======");
 
+        // ==================== 电影 ====================
         // 正在热映
         movieRepository.save(createMovie("空枪", "/images/poster1.jpg", 9.5, null, "2026-09-22", "showing", null, "王小明", "张三,李四,王五", 128));
         movieRepository.save(createMovie("八仙！", "/images/poster2.jpg", 9.7, "2DIMAX", "2026-07-18", "showing", null, "张艺谋", "何仙姑,吕洞宾,铁拐李,汉钟离", 135));
@@ -55,7 +55,7 @@ public class DataInitializer implements CommandLineRunner {
         movieRepository.save(createMovie("老江湖", "/images/poster15.jpg", null, null, "2026-09-25", "upcoming", 68734, "杜琪峰", "古天乐,刘德华,张家辉", 124));
         movieRepository.save(createMovie("红孩儿火焰山之王", "/images/poster16.jpg", null, null, "2026-09-25", "upcoming", 30942, "饺子", "吕艳婷,囧森瑟夫,瀚墨", 110));
 
-        // 场次
+        // ==================== 场次 ====================
         scheduleRepository.save(createSchedule(2L, 1L, "厦门华侨大学店", "1号厅", "10:30", "12:54", "国语 2D", 34.0, "2026-09-22"));
         scheduleRepository.save(createSchedule(2L, 1L, "厦门华侨大学店", "2号厅", "13:00", "15:24", "国语 2D", 38.0, "2026-09-22"));
         scheduleRepository.save(createSchedule(2L, 1L, "厦门华侨大学店", "1号厅", "15:30", "17:54", "国语 2D", 38.0, "2026-09-22"));
@@ -76,6 +76,7 @@ public class DataInitializer implements CommandLineRunner {
             scheduleRepository.save(createSchedule(movie.getId(), 3L, "幸福蓝海国际影城 (集美世茂广场IMAX店)", "IMAX厅", "19:00", "21:24", "国语 2D", 40.0, "2026-09-22"));
         }
 
+        // ==================== 座位 ====================
         log.info("====== 开始生成座位数据 ======");
         List<Schedule> allSchedules = scheduleRepository.findAll();
         Random random = new Random(2026);
@@ -101,6 +102,27 @@ public class DataInitializer implements CommandLineRunner {
             totalSeats += seats.size();
         }
         log.info("====== 共生成座位 {} 个 ======", totalSeats);
+
+        // ==================== 侧边栏：今日票房 ====================
+        dailyBoxOfficeRepository.save(createBoxOffice(1, "奥德赛", 92.56));
+        dailyBoxOfficeRepository.save(createBoxOffice(2, "欢迎来龙餐馆", 46.61));
+        dailyBoxOfficeRepository.save(createBoxOffice(3, "空枪", 30.37));
+        dailyBoxOfficeRepository.save(createBoxOffice(4, "八仙！", 17.36));
+        dailyBoxOfficeRepository.save(createBoxOffice(5, "密档", 14.12));
+        log.info("====== 今日票房初始化完成 ======");
+
+        // ==================== 侧边栏：最受期待 ====================
+        expectedMovieRepository.save(createExpected(1, "复仇者联盟4：终局之战", 2239942));
+        expectedMovieRepository.save(createExpected(2, "生化危机：爆发夜", 144997));
+        expectedMovieRepository.save(createExpected(3, "神探之痕迹", 91012));
+        log.info("====== 最受期待初始化完成 ======");
+
+        // ==================== 侧边栏：TOP 100 ====================
+        top100MovieRepository.save(createTop100(1, "我不是药神", 9.6));
+        top100MovieRepository.save(createTop100(2, "肖申克的救赎", 9.8));
+        top100MovieRepository.save(createTop100(3, "海上钢琴师", 9.3));
+        log.info("====== TOP 100 初始化完成 ======");
+
         log.info("====== 数据初始化完成！ ======");
     }
 
@@ -143,5 +165,29 @@ public class DataInitializer implements CommandLineRunner {
         s.setPrice(price);
         s.setDate(date);
         return s;
+    }
+
+    private DailyBoxOffice createBoxOffice(Integer rank, String title, Double amount) {
+        DailyBoxOffice b = new DailyBoxOffice();
+        b.setRankNum(rank);
+        b.setMovieTitle(title);
+        b.setAmount(amount);
+        return b;
+    }
+
+    private ExpectedMovie createExpected(Integer rank, String title, Integer wantCount) {
+        ExpectedMovie e = new ExpectedMovie();
+        e.setRankNum(rank);
+        e.setMovieTitle(title);
+        e.setWantCount(wantCount);
+        return e;
+    }
+
+    private Top100Movie createTop100(Integer rank, String title, Double score) {
+        Top100Movie t = new Top100Movie();
+        t.setRankNum(rank);
+        t.setMovieTitle(title);
+        t.setScore(score);
+        return t;
     }
 }

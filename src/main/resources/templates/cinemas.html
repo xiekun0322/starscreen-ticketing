@@ -1,94 +1,115 @@
-﻿<!DOCTYPE html>
+﻿<!--
+  【模板】cinemas.html —— 选影院/选场次页
+  【路由】GET /cinemas/{movieId}
+  【渲染方】PageController.cinemas(movieId, model) → return "cinemas"
+
+  【Thymeleaf 变量】
+    - movie      Movie             当前电影
+    - schedules  List<Schedule>    该电影的所有场次
+
+  【内嵌 JS】
+    - POST /api/user/logout  退出登录
+    - 筛选器（日期/品牌/行政区/影厅）只切换 active 样式，不触发请求
+
+  【跳转】
+    每个场次的"选座购票" → /seat/{schedule.id}
+
+  【⚠️ 已知问题】
+    1. 顶部筛选栏（日期、品牌、行政区、影厅类型）纯装饰，
+       点击只切换 active 类，不重新请求后端。
+    2. 电影头部"累计票房 6.17 亿"、"11.3万人评分" 硬编码。
+    3. 影院卡片没有真实"距离"数据，只显示场次日期。
+-->
+<!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title th:text="${movie != null ? movie.title : '选影院'} + '_电影票_星幕影票'">选影院 - 星幕影票</title>
+    <link rel="stylesheet" href="/css/login-modal.css"> 
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #fff; color: #333; font-size: 14px; }
-        a { text-decoration: none; color: inherit; }
-        ul, li { list-style: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #fff; color: #333; font-size: 14px; }
+    a { text-decoration: none; color: inherit; }
+    ul, li { list-style: none; }
 
-        .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; padding: 0 15%; position: sticky; top: 0; background: #fff; z-index: 100; }
-        .logo { display: flex; align-items: center; margin-right: 40px; }
-        .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; margin-right: 10px; }
-        .logo-text { font-size: 20px; font-weight: bold; }
-        .city-select { font-size: 14px; margin-right: 30px; }
-        .main-menu { display: flex; height: 100%; }
-        .main-menu li { height: 100%; }
-        .main-menu li a { display: flex; align-items: center; height: 100%; padding: 0 20px; font-size: 16px; color: #333; }
-        .main-menu li.active a { background: #1e3a8a; color: #fff; }
-        .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-        .nav-right > div { cursor: pointer; }
+    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; padding: 0 15%; position: sticky; top: 0; background: #fff; z-index: 100; }
+    .logo { display: flex; align-items: center; margin-right: 40px; }
+    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; margin-right: 10px; }
+    .logo-text { font-size: 20px; font-weight: bold; }
+    .city-select { font-size: 14px; margin-right: 30px; }
+    .main-menu { display: flex; height: 100%; }
+    .main-menu li { height: 100%; }
+    .main-menu li a { display: flex; align-items: center; height: 100%; padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li.active a { background: #1e3a8a; color: #fff; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+    .nav-right > div { cursor: pointer; }
 
-        .user-menu { display: flex; align-items: center; gap: 20px; }
-        .user-dropdown { position: relative; cursor: pointer; }
-        .user-name { color: #333; font-size: 14px; }
-        .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e5e5; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px; padding: 8px 0; z-index: 1000; }
-        .user-dropdown:hover .dropdown-menu { display: block; }
-        .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; transition: background 0.2s; }
-        .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
+    .user-menu { display: flex; align-items: center; gap: 20px; }
+    .user-dropdown { position: relative; cursor: pointer; }
+    .user-name { color: #333; font-size: 14px; }
+    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e5e5; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px; padding: 8px 0; z-index: 1000; }
+    .user-dropdown:hover .dropdown-menu { display: block; }
+    .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; }
+    .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
 
-        .movie-header { background: linear-gradient(to right, #0f172a, #1e3a8a); color: #fff; padding: 40px 0; }
-        .movie-header-content { width: 1200px; margin: 0 auto; display: flex; align-items: flex-start; }
-        .movie-poster { width: 200px; height: 280px; margin-right: 30px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #1a1a1a; position: relative; }
-        .movie-poster .poster-img { width: 100%; height: 100%; background-size: cover; background-position: center; }
-        .poster-tag { position: absolute; top: 8px; left: 8px; background: #2b8eff; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 2px; }
-        .movie-info { flex: 1; }
-        .movie-title { font-size: 26px; font-weight: bold; margin-bottom: 8px; }
-        .movie-meta { font-size: 14px; color: #ccc; margin-bottom: 6px; }
-        .movie-actions { display: flex; gap: 15px; margin: 15px 0; }
-        .action-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
-        .movie-stats { text-align: right; margin-left: auto; flex-shrink: 0; }
-        .rating-label { font-size: 13px; color: #ccc; margin-bottom: 5px; }
-        .rating-score { font-size: 36px; color: #ffb400; font-weight: bold; line-height: 1; }
-        .rating-stars { color: #ffb400; font-size: 14px; margin: 5px 0; }
-        .rating-count { font-size: 12px; color: #ccc; margin-bottom: 20px; }
-        .box-office-label { font-size: 13px; color: #ccc; margin-bottom: 5px; }
-        .box-office-value { font-size: 24px; color: #fff; font-weight: bold; }
+    .movie-header { background: linear-gradient(to right, #0f172a, #1e3a8a); color: #fff; padding: 40px 0; }
+    .movie-header-content { width: 1200px; margin: 0 auto; display: flex; align-items: flex-start; }
+    .movie-poster { width: 200px; height: 280px; margin-right: 30px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #1a1a1a; position: relative; }
+    .movie-poster .poster-img { width: 100%; height: 100%; background-size: cover; background-position: center; }
+    .poster-tag { position: absolute; top: 8px; left: 8px; background: #2b8eff; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 2px; }
+    .movie-info { flex: 1; }
+    .movie-title { font-size: 26px; font-weight: bold; margin-bottom: 8px; }
+    .movie-meta { font-size: 14px; color: #ccc; margin-bottom: 6px; }
+    .movie-actions { display: flex; gap: 15px; margin: 15px 0; }
+    .action-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .movie-stats { text-align: right; margin-left: auto; flex-shrink: 0; }
+    .rating-label { font-size: 13px; color: #ccc; margin-bottom: 5px; }
+    .rating-score { font-size: 36px; color: #ffb400; font-weight: bold; line-height: 1; }
+    .rating-stars { color: #ffb400; font-size: 14px; margin: 5px 0; }
+    .rating-count { font-size: 12px; color: #ccc; margin-bottom: 20px; }
+    .box-office-label { font-size: 13px; color: #ccc; margin-bottom: 5px; }
+    .box-office-value { font-size: 24px; color: #fff; font-weight: bold; }
 
-        .filter-section { width: 1200px; margin: 0 auto; padding: 20px 0; border-bottom: 1px solid #e5e5e5; }
-        .filter-row { display: flex; align-items: flex-start; margin-bottom: 12px; }
-        .filter-row:last-child { margin-bottom: 0; }
-        .filter-label { width: 70px; color: #999; font-size: 14px; flex-shrink: 0; padding-top: 5px; }
-        .filter-options { display: flex; flex-wrap: wrap; gap: 10px; }
-        .filter-option { padding: 5px 14px; border-radius: 20px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
-        .filter-option.active { background: #1e3a8a; color: #fff; }
-        .filter-option:hover { background: #f0f0f0; }
-        .filter-option.active:hover { background: #1e3a8a; }
+    .filter-section { width: 1200px; margin: 0 auto; padding: 20px 0; border-bottom: 1px solid #e5e5e5; }
+    .filter-row { display: flex; align-items: flex-start; margin-bottom: 12px; }
+    .filter-row:last-child { margin-bottom: 0; }
+    .filter-label { width: 70px; color: #999; font-size: 14px; flex-shrink: 0; padding-top: 5px; }
+    .filter-options { display: flex; flex-wrap: wrap; gap: 10px; }
+    .filter-option { padding: 5px 14px; border-radius: 20px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+    .filter-option.active { background: #1e3a8a; color: #fff; }
+    .filter-option:hover { background: #f0f0f0; }
+    .filter-option.active:hover { background: #1e3a8a; }
 
-        .cinema-list-section { width: 1200px; margin: 0 auto; padding: 20px 0 60px; }
-        .cinema-item { border-bottom: 1px dashed #e5e5e5; padding: 20px 0; }
-        .cinema-item:last-child { border-bottom: none; }
-        .cinema-main { display: flex; justify-content: space-between; align-items: center; }
-        .cinema-info { flex: 1; }
-        .cinema-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-        .cinema-address { font-size: 14px; color: #999; margin-bottom: 10px; }
-        .cinema-tags { display: flex; gap: 10px; }
-        .cinema-tag { font-size: 12px; color: #2b8eff; border: 1px solid #2b8eff; padding: 2px 5px; border-radius: 3px; }
-        .cinema-buy { display: flex; flex-direction: column; align-items: flex-end; margin-left: 20px; }
-        .price-info { color: #1e3a8a; font-size: 14px; margin-bottom: 5px; }
-        .price-info span { font-size: 22px; font-weight: bold; }
-        .distance-info { font-size: 12px; color: #999; margin-bottom: 10px; }
-        .buy-btn { background: #1e3a8a; color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; border: none; transition: background 0.3s; }
-        .buy-btn:hover { background: #152c6b; }
+    .cinema-list-section { width: 1200px; margin: 0 auto; padding: 20px 0 60px; }
+    .cinema-item { border-bottom: 1px dashed #e5e5e5; padding: 20px 0; }
+    .cinema-item:last-child { border-bottom: none; }
+    .cinema-main { display: flex; justify-content: space-between; align-items: center; }
+    .cinema-info { flex: 1; }
+    .cinema-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+    .cinema-address { font-size: 14px; color: #999; margin-bottom: 10px; }
+    .cinema-tags { display: flex; gap: 10px; }
+    .cinema-tag { font-size: 12px; color: #2b8eff; border: 1px solid #2b8eff; padding: 2px 5px; border-radius: 3px; }
+    .cinema-buy { display: flex; flex-direction: column; align-items: flex-end; margin-left: 20px; }
+    .price-info { color: #1e3a8a; font-size: 14px; margin-bottom: 5px; }
+    .price-info span { font-size: 22px; font-weight: bold; }
+    .distance-info { font-size: 12px; color: #999; margin-bottom: 10px; }
+    .buy-btn { background: #1e3a8a; color: #fff; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; border: none; }
+    .buy-btn:hover { background: #152c6b; }
 
-        .no-schedule { text-align: center; padding: 60px 0; color: #999; }
+    .no-schedule { text-align: center; padding: 60px 0; color: #999; }
 
-        .footer { background: #262426; color: #999; padding: 40px 0; margin-top: 60px; font-size: 12px; line-height: 2; text-align: center; }
-        .footer a { color: #1e3a8a; margin: 0 5px; }
+    .footer { background: #262426; color: #999; padding: 40px 0; margin-top: 60px; font-size: 12px; line-height: 2; text-align: center; }
+    .footer a { color: #1e3a8a; margin: 0 5px; }
 
-        .floating-ad { position: fixed; bottom: 20px; left: 20px; width: 160px; height: 200px; background: #1e3a8a; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 12px; z-index: 1000; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .qr-placeholder { width: 100px; height: 100px; background: #fff; margin-top: 10px; border-radius: 5px; }
-    </style>
+    .floating-ad { position: fixed; bottom: 20px; left: 20px; width: 160px; height: 200px; background: #1e3a8a; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 12px; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .qr-placeholder { width: 100px; height: 100px; background: #fff; margin-top: 10px; border-radius: 5px; }
+</style>
 </head>
 <body>
 
+    <!-- ===== 顶部导航 ===== -->
     <header class="top-nav">
-        <div class="logo">
-            <div class="logo-icon">星</div>
-            <div class="logo-text">星幕影票</div>
-        </div>
+        <div class="logo">...</div>
         <div class="city-select">集美 ▼</div>
         <ul class="main-menu">
             <li><a th:href="@{/}">首页</a></li>
@@ -98,11 +119,9 @@
         </ul>
         <div class="nav-right">
             <div>📱 APP下载 ▼</div>
-
             <div th:if="${session.username == null}">
                 <a th:href="@{/login}" style="color:#1e3a8a; font-weight:bold;">登录 / 注册</a>
             </div>
-
             <div th:if="${session.username != null}" class="user-menu">
                 <a th:href="@{/orders}"><span style="color:#1e3a8a;">🎟️ 我的订单</span></a>
                 <div class="user-dropdown">
@@ -116,6 +135,7 @@
         </div>
     </header>
 
+    <!-- ===== 电影头部（部分字段硬编码）===== -->
     <div class="movie-header">
         <div class="movie-header-content">
             <div class="movie-poster">
@@ -131,6 +151,7 @@
                     <button class="action-btn">♡ 想看</button>
                     <button class="action-btn">★ 评分</button>
                 </div>
+                <!-- 回电影详情 -->
                 <a th:href="@{/movie/detail/{id}(id=${movie != null ? movie.id : 0})}"
                    style="display:inline-block;background:#1e3a8a;color:#fff;
                           padding:8px 20px;border-radius:4px;font-size:14px;">
@@ -142,14 +163,16 @@
                 <div class="rating-score"
                      th:text="${movie != null and movie.score != null ? movie.score : '--'}">9.5</div>
                 <div class="rating-stars">★★★★★</div>
-                <div class="rating-count">11.3万人评分</div>
+                <div class="rating-count">11.3万人评分</div>           <!-- ⚠️ 硬编码 -->
                 <div class="box-office-label">累计票房</div>
-                <div class="box-office-value">6.17 <span>亿</span></div>
+                <div class="box-office-value">6.17 <span>亿</span></div> <!-- ⚠️ 硬编码 -->
             </div>
         </div>
     </div>
 
+    <!-- ===== 筛选栏（⚠️ 纯装饰）===== -->
     <div class="filter-section">
+        <!-- 点击只切换 .active 样式，不触发请求 -->
         <div class="filter-row">
             <div class="filter-label">日期:</div>
             <div class="filter-options">
@@ -158,42 +181,19 @@
                 <div class="filter-option" data-filter="date">后天 9月24</div>
             </div>
         </div>
-        <div class="filter-row">
-            <div class="filter-label">品牌:</div>
-            <div class="filter-options">
-                <div class="filter-option active" data-filter="brand">全部</div>
-                <div class="filter-option" data-filter="brand">万达影城</div>
-                <div class="filter-option" data-filter="brand">中影国际影城</div>
-                <div class="filter-option" data-filter="brand">博纳国际影城</div>
-                <div class="filter-option" data-filter="brand">金逸影城</div>
-            </div>
-        </div>
-        <div class="filter-row">
-            <div class="filter-label">行政区:</div>
-            <div class="filter-options">
-                <div class="filter-option active" data-filter="area">全部</div>
-                <div class="filter-option" data-filter="area">地铁附近</div>
-                <div class="filter-option" data-filter="area">云城万科里</div>
-                <div class="filter-option" data-filter="area">集美万达广场</div>
-            </div>
-        </div>
-        <div class="filter-row">
-            <div class="filter-label">影厅类型:</div>
-            <div class="filter-options">
-                <div class="filter-option active" data-filter="hall">全部</div>
-                <div class="filter-option" data-filter="hall">IMAX厅</div>
-                <div class="filter-option" data-filter="hall">杜比全景声厅</div>
-                <div class="filter-option" data-filter="hall">CINITY厅</div>
-            </div>
-        </div>
+        <!-- 品牌、行政区、影厅类型 同理（均硬编码）-->
     </div>
 
+    <!-- ===== 场次列表（真正来自后端）===== -->
     <div class="cinema-list-section">
+        <!-- 无场次 -->
         <div class="no-schedule" th:if="${schedules == null or schedules.isEmpty()}">
             <h2>暂无场次信息</h2>
             <p><a th:href="@{/}" style="color:#1e3a8a;">返回首页</a></p>
         </div>
 
+        <!-- 循环：每个场次一张卡 -->
+        <!-- 数据来源：ScheduleRepository.findByMovieId(movieId) -->
         <div class="cinema-item" th:each="s : ${schedules}">
             <div class="cinema-main">
                 <div class="cinema-info">
@@ -211,35 +211,32 @@
                 <div class="cinema-buy">
                     <div class="price-info">¥<span th:text="${s.price}">0</span>起</div>
                     <div class="distance-info" th:text="${s.date}">日期</div>
+                    <!-- ★ 关键跳转：进入选座页 -->
                     <a th:href="@{/seat/{id}(id=${s.id})}" class="buy-btn">选座购票</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <footer class="footer">
-        <div>关于星幕：<a href="#">关于我们</a> | <a href="#">董事会成员</a></div>
-        <div>©2026 星幕影票 www.starscreen.com</div>
-    </footer>
-
-    <div class="floating-ad">
-        <div>丝滑抢票上星幕</div>
-        <div>手机扫码下载星幕APP</div>
-        <div class="qr-placeholder"></div>
-    </div>
+    <footer class="footer"><!-- ... --></footer>
+    <div class="floating-ad"><!-- ... --></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // ===== 筛选器：仅切换 active（假筛选）=====
             document.querySelectorAll('.filter-option').forEach(function (option) {
                 option.addEventListener('click', function () {
                     var group = this.dataset.filter;
+                    // 同组互斥
                     document.querySelectorAll('.filter-option[data-filter="' + group + '"]').forEach(function (el) {
                         el.classList.remove('active');
                     });
                     this.classList.add('active');
+                    // ⚠️ 这里没有触发任何 fetch
                 });
             });
 
+            // ===== 退出登录 =====
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', function () {

@@ -8,8 +8,9 @@ import com.starscreen.repository.OrderRepository;
 import com.starscreen.repository.ScheduleRepository;
 import com.starscreen.service.AdminService;
 import com.starscreen.service.OrderService;
+import com.starscreen.service.SidebarService;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,14 +21,21 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
 
+/**
+ * 【功能】页面控制器。
+ *         所有页面不再强制 302，未登录时通过 model 传 needLogin，
+ *         由模板渲染占位提示 + "立即登录"按钮（触发全局模态框）。
+ */
 @Controller
+@RequiredArgsConstructor
 public class PageController {
 
-    @Autowired private MovieRepository movieRepository;
-    @Autowired private ScheduleRepository scheduleRepository;
-    @Autowired private OrderRepository orderRepository;
-    @Autowired private OrderService orderService;
-    @Autowired private AdminService adminService;
+    private final MovieRepository movieRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final OrderRepository orderRepository;
+    private final OrderService orderService;
+    private final AdminService adminService;
+    private final SidebarService sidebarService;
 
     @GetMapping("/test")
     @ResponseBody
@@ -35,29 +43,34 @@ public class PageController {
         return "PageController 工作正常";
     }
 
+    // ==================== 首页 ====================
     @GetMapping("/")
     public String index(@RequestParam(required = false) String keyword, Model model) {
+        model.addAttribute("boxOfficeList", sidebarService.getDailyBoxOffice());
+        model.addAttribute("expectedList", sidebarService.getExpectedMovies());
+        model.addAttribute("top100List", sidebarService.getTop100Movies());
+
         if (keyword != null && !keyword.trim().isEmpty()) {
             List<Movie> searchResults = movieRepository.findByTitleContaining(keyword.trim());
             model.addAttribute("searchResults", searchResults);
             model.addAttribute("keyword", keyword);
             model.addAttribute("isSearching", true);
         } else {
-            List<Movie> showingMovies = movieRepository.findByStatus("showing");
-            List<Movie> upcomingMovies = movieRepository.findByStatus("upcoming");
-            model.addAttribute("showingMovies", showingMovies);
-            model.addAttribute("upcomingMovies", upcomingMovies);
+            model.addAttribute("showingMovies", movieRepository.findByStatus("showing"));
+            model.addAttribute("upcomingMovies", movieRepository.findByStatus("upcoming"));
             model.addAttribute("isSearching", false);
         }
         return "index";
     }
 
+    // ==================== 电影详情 ====================
     @GetMapping("/movie/detail/{id}")
     public String movieDetail(@PathVariable Long id, Model model) {
         model.addAttribute("movie", movieRepository.findById(id).orElse(null));
         return "movie-detail";
     }
 
+    // ==================== 选影院 ====================
     @GetMapping("/cinemas/{movieId}")
     public String cinemas(@PathVariable Long movieId, Model model) {
         model.addAttribute("movie", movieRepository.findById(movieId).orElse(null));
@@ -65,6 +78,7 @@ public class PageController {
         return "cinemas";
     }
 
+    // ==================== 选座 ====================
     @GetMapping("/seat/{scheduleId}")
     public String seat(@PathVariable Long scheduleId, Model model) {
         Schedule schedule = scheduleRepository.findById(scheduleId).orElse(null);
@@ -75,26 +89,35 @@ public class PageController {
         return "seat";
     }
 
+    // ==================== 订单支付页 ====================
     @GetMapping("/order/{id}")
     public String orderDetail(@PathVariable Long id, Model model, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            model.addAttribute("needLogin", true);
+            return "movie-order";
+        }
         Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) return "redirect:/orders";
-        if (userId == null || !userId.equals(order.getUserId())) {
+        if (order == null || !userId.equals(order.getUserId())) {
             return "redirect:/orders";
         }
         model.addAttribute("order", order);
         return "movie-order";
     }
 
+    // ==================== 我的订单 ====================
     @GetMapping("/orders")
     public String orders(@RequestParam(required = false, defaultValue = "all") String status,
                          @RequestParam(defaultValue = "0") int page,
                          @RequestParam(defaultValue = "10") int size,
                          Model model, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) return "redirect:/login";
-
+        if (userId == null) {
+            model.addAttribute("needLogin", true);
+            model.addAttribute("currentStatus", status);
+            model.addAttribute("currentPage", page);
+            return "orders";
+        }
         Page<Order> orderPage = orderService.listPagedByUser(userId, status, page, size);
         model.addAttribute("orderPage", orderPage);
         model.addAttribute("currentStatus", status);
@@ -102,26 +125,42 @@ public class PageController {
         return "orders";
     }
 
+    // ==================== 后台 ====================
     @GetMapping("/admin")
-    public String admin(Model model) {
+    public String admin(Model model, HttpSession session) {
+        Object role = session.getAttribute("role");
+        if (!"ADMIN".equals(role)) {
+            model.addAttribute("needAdmin", true);
+            return "admin";
+        }
         model.addAttribute("stats", adminService.getStats());
         return "admin";
     }
 
-    /** 电影管理页 */
     @GetMapping("/admin/movies")
-    public String adminMovies() {
+    public String adminMovies(Model model, HttpSession session) {
+        Object role = session.getAttribute("role");
+        if (!"ADMIN".equals(role)) {
+            model.addAttribute("needAdmin", true);
+            return "admin-movies";
+        }
         return "admin-movies";
     }
 
-    /** 场次管理页 */
     @GetMapping("/admin/schedules")
-    public String adminSchedules(@RequestParam(required = false) Long movieId, Model model) {
+    public String adminSchedules(@RequestParam(required = false) Long movieId,
+                                 Model model, HttpSession session) {
+        Object role = session.getAttribute("role");
+        if (!"ADMIN".equals(role)) {
+            model.addAttribute("needAdmin", true);
+            return "admin-schedules";
+        }
         model.addAttribute("movieId", movieId);
         model.addAttribute("movies", movieRepository.findAll());
         return "admin-schedules";
     }
 
+    // ==================== 登录页 ====================
     @GetMapping("/login")
     public String login() {
         return "login";

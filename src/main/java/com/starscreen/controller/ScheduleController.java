@@ -1,31 +1,54 @@
-package com.starscreen.controller; // 声明当前类所在的包
+package com.starscreen.controller;
 
-import com.starscreen.entity.Schedule; // 导入 Schedule 实体
-import com.starscreen.repository.ScheduleRepository; // 导入 ScheduleRepository
-import org.springframework.beans.factory.annotation.Autowired; // 导入 @Autowired
-import org.springframework.web.bind.annotation.*; // 导入注解
+import com.starscreen.entity.Schedule;
+import com.starscreen.repository.ScheduleRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.List; // 导入 List
+import java.util.List;
 
 /**
- * 场次接口控制器
- * 提供 JSON 接口，供前端 AJAX 调用
+ * 【功能】公开场次 REST API（前台 AJAX）。
+ *
+ * 【路径前缀】/api/schedules
+ *
+ * 【⚠️ 与 MovieController 相同的风格问题】
+ *          1. 返回裸 List/Schedule，未使用 Result 包装
+ *          2. 直接注入 Repository，跳过 Service 层（无业务校验、无事务）
+ *          3. @CrossOrigin 与全局 CORS 白名单冲突
+ *
+ * 【调用方】
+ *          前台若需要动态查询场次，可调：
+ *          - GET /api/schedules                    全部
+ *          - GET /api/schedules/search?movieId=&date=  条件搜索
+ *          - GET /api/schedules/{id}               单条
+ *          目前 cinemas.html / seat.html 走服务端渲染，未直接调本接口。
  */
-@RestController // RESTful 控制器
-@RequestMapping("/api/schedules") // 路径前缀
-@CrossOrigin // 允许跨域
+@RestController
+@RequestMapping("/api/schedules")
+@CrossOrigin
 public class ScheduleController {
 
-    @Autowired // 注入场次仓库
+    @Autowired
     private ScheduleRepository scheduleRepository;
 
-    /** 查询全部场次 */
+    /**
+     * 【功能】查询全部场次。
+     * 【调用链】GET /api/schedules
+     */
     @GetMapping
     public List<Schedule> list() {
         return scheduleRepository.findAll();
     }
 
-    /** 按电影 ID 和日期查询场次 */
+    /**
+     * 【功能】按电影 ID 和/或日期查询场次。
+     * 【调用链】GET /api/schedules/search?movieId=2&date=2026-09-22
+     * 【分支逻辑】
+     *   movieId + date 都有  → findByMovieIdAndDate
+     *   只有 movieId          → findByMovieId
+     *   都没有               → findAll（等价于 list()）
+     */
     @GetMapping("/search")
     public List<Schedule> search(@RequestParam(required = false) Long movieId,
                                  @RequestParam(required = false) String date) {
@@ -38,7 +61,11 @@ public class ScheduleController {
         return scheduleRepository.findAll();
     }
 
-    /** 查询单个场次 */
+    /**
+     * 【功能】查询单条场次。
+     * 【调用链】GET /api/schedules/{id}
+     * 【注意】id 不存在返回 null。
+     */
     @GetMapping("/{id}")
     public Schedule detail(@PathVariable Long id) {
         return scheduleRepository.findById(id).orElse(null);
