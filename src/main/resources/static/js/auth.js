@@ -1,28 +1,10 @@
 /**
- * 【功能】全局登录态管理 + 登录模态框 + 绑定账号 + apiFetch 包装器。
- *
- * 【用法】
- *   1. 页面 <head> 引入 <script src="/js/auth.js" defer></script>
- *   2. 页面底部 th:replace="~{fragments/login-modal :: modal}"
- *               th:replace="~{fragments/login-modal :: bindModal}"
- *   3. 需要登录的 fetch 用 await apiFetch(...)
- *      401 时会自动弹登录框，登录成功后自动重试原请求
- *
- * 【全局暴露】
- *   window.currentUser          当前登录用户（null 表示未登录）
- *   window.openLoginModal(cb)   手动打开登录框
- *   window.closeLoginModal()    关闭登录框
- *   window.openBindModal()      打开绑定账号框
- *   window.closeBindModal()     关闭绑定账号框
- *   window.apiFetch(url, opts)  fetch 包装器
- *   window.refreshCurrentUser() 重新拉取登录态
- *   window.doLogout()           退出登录
+ * 【功能】全局登录态 + 弹窗 + apiFetch 包装器。
+ * 【改动】"发送验证码"改成：后端返回验证码 → alert 显示 → 自动填入
  */
-
 (function () {
     'use strict';
 
-    // ==================== 登录态 ====================
     window.currentUser = null;
 
     window.refreshCurrentUser = function () {
@@ -40,7 +22,6 @@
             });
     };
 
-    // ==================== 顶部导航登录态渲染 ====================
     function updateNavUI() {
         const navRight = document.querySelector('.nav-right .user-area');
         if (!navRight) return;
@@ -50,7 +31,9 @@
                 '<div class="user-dropdown">' +
                     '<span class="user-name">👤 ' + escapeHtml(window.currentUser.username) + ' ▼</span>' +
                     '<div class="dropdown-menu">' +
+                        '<a href="/user/profile">个人中心</a>' +
                         '<a href="/orders">我的订单</a>' +
+                        '<a href="/admin">后台管理</a>' +
                         '<a href="javascript:void(0)" onclick="openBindModal()">绑定账号</a>' +
                         '<a href="javascript:void(0)" onclick="doLogout()">退出登录</a>' +
                     '</div>' +
@@ -104,7 +87,7 @@
         }
     }
 
-    // ==================== apiFetch 包装器 ====================
+    // ==================== apiFetch ====================
     window.apiFetch = function (url, options) {
         options = options || {};
         options.credentials = 'same-origin';
@@ -121,7 +104,6 @@
         });
     };
 
-    // ==================== 退出登录 ====================
     window.doLogout = function () {
         if (!confirm('确定要退出登录吗？')) return;
         fetch('/api/user/logout', { method: 'POST', credentials: 'same-origin' })
@@ -129,7 +111,7 @@
             .catch(() => { window.location.href = '/'; });
     };
 
-    // ==================== 登录模态框内部逻辑 ====================
+    // ==================== 登录模态框事件 ====================
     function bindLoginModalEvents() {
         const modal = document.getElementById('globalLoginModal');
         if (!modal) return;
@@ -142,7 +124,7 @@
 
         function showMsg(text, type) {
             msg.textContent = text;
-            msg.className = 'glm-msg ' + type;
+            msg.className = 'glm-msg ' + (type || '');
         }
 
         tabSms.addEventListener('click', () => {
@@ -207,10 +189,12 @@
         smsPhone.addEventListener('input', () => { checkSend(); checkSms(); });
         smsCode.addEventListener('input', checkSms);
 
+        // ★ 发送验证码：后端返回 code → alert 显示 → 自动填入
         sendBtn.addEventListener('click', () => {
             const phone = smsPhone.value.trim();
             if (!/^1[3-9]\d{9}$/.test(phone)) { showMsg('手机号格式错误', 'error'); return; }
             sendBtn.disabled = true;
+
             fetch('/api/user/send-sms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -220,10 +204,18 @@
             .then(r => r.json())
             .then(res => {
                 if (res.code !== 200) throw new Error(res.message);
-                showMsg('验证码已发送（演示环境请看控制台）', 'success');
-                countdown = 60; checkSend();
+                const code = res.data;
+
+                // ★ 弹窗显示验证码
+                alert('【演示环境】\n您的验证码是：' + code + '\n\n已自动填入。');
+                smsCode.value = code;
+                checkSms();
+
+                countdown = 60;
+                checkSend();
                 timer = setInterval(() => {
-                    countdown--; checkSend();
+                    countdown--;
+                    checkSend();
                     if (countdown <= 0) { clearInterval(timer); checkSend(); }
                 }, 1000);
             })
@@ -252,16 +244,15 @@
             });
         });
 
-        // 点击遮罩关闭
         modal.addEventListener('click', e => {
             if (e.target === modal) window.closeLoginModal();
         });
     }
 
-    // ==================== 绑定账号模态框 ====================
+    // ==================== 绑定账号弹窗 ====================
     window.openBindModal = function () {
         const modal = document.getElementById('bindAccountModal');
-        if (!modal) { alert('绑定弹窗未加载，请确认页面引入 fragment'); return; }
+        if (!modal) { alert('绑定弹窗未加载'); return; }
         document.getElementById('bindUsername').value = '';
         document.getElementById('bindPassword').value = '';
         document.getElementById('bindConfirm').value = '';
@@ -277,7 +268,6 @@
     function bindBindModalEvents() {
         const modal = document.getElementById('bindAccountModal');
         if (!modal) return;
-
         const bindUser = document.getElementById('bindUsername');
         const bindPwd = document.getElementById('bindPassword');
         const bindConfirm = document.getElementById('bindConfirm');
@@ -286,7 +276,7 @@
 
         function showBindMsg(text, type) {
             bindMsg.textContent = text;
-            bindMsg.className = 'glm-msg ' + type;
+            bindMsg.className = 'glm-msg ' + (type || '');
         }
 
         bindBtn.addEventListener('click', function () {
@@ -312,13 +302,13 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
-                body: JSON.stringify({ username: username, password: password })
+                body: JSON.stringify({ username, password })
             })
             .then(r => r.json())
             .then(res => {
                 if (res.code !== 200) throw new Error(res.message);
                 showBindMsg('绑定成功，正在刷新...', 'success');
-                setTimeout(function () { window.location.reload(); }, 800);
+                setTimeout(() => window.location.reload(), 800);
             })
             .catch(err => {
                 showBindMsg(err.message || '绑定失败', 'error');

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>个人中心 - 星幕影票</title>
+    <script src="/js/auth.js" defer></script>
+    <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
+    a { text-decoration: none; color: inherit; }
+    ul, li { list-style: none; }
+
+    /* 顶部导航 */
+    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex;
+               align-items: center; padding: 0 15%; position: sticky; top: 0;
+               background: #fff; z-index: 100; }
+    .logo { display: flex; align-items: center; margin-right: 40px; }
+    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%;
+                 color: #fff; display: flex; justify-content: center; align-items: center;
+                 font-weight: bold; font-size: 18px; margin-right: 10px; }
+    .logo-text { font-size: 20px; font-weight: bold; }
+    .main-menu { display: flex; height: 100%; }
+    .main-menu li a { display: flex; align-items: center; height: 80px;
+                      padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li a:hover { color: #1e3a8a; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+    .user-area { display: flex; align-items: center; gap: 20px; }
+    .user-dropdown { position: relative; cursor: pointer; }
+    .user-name { color: #333; font-size: 14px; }
+    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0;
+                     background: #fff; border: 1px solid #e5e5e5; border-radius: 4px;
+                     box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px;
+                     padding: 8px 0; z-index: 1000; }
+    .user-dropdown:hover .dropdown-menu { display: block; }
+    .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; }
+    .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
+
+    /* 容器 */
+    .wrap { width: 1000px; margin: 30px auto 60px; display: flex; gap: 24px; }
+
+    /* 左侧菜单 */
+    .side-menu { width: 200px; flex-shrink: 0; background: #fff;
+                 border-radius: 8px; padding: 12px; height: fit-content;
+                 box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .menu-item { padding: 14px 20px; border-radius: 6px; cursor: pointer;
+                 color: #666; font-size: 15px; transition: all 0.2s; }
+    .menu-item:hover { background: #f5f5f5; color: #1e3a8a; }
+    .menu-item.active { background: #1e3a8a; color: #fff; font-weight: bold; }
+
+    /* 右侧内容 */
+    .main-content { flex: 1; background: #fff; border-radius: 8px;
+                    padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .content-title { font-size: 22px; font-weight: bold; color: #1e3a8a;
+                     margin-bottom: 30px; display: flex; align-items: center; }
+    .content-title::before { content: ''; display: inline-block; width: 4px;
+                             height: 20px; background: #1e3a8a;
+                             margin-right: 10px; border-radius: 2px; }
+
+    /* 用户信息卡 */
+    .profile-card { display: flex; align-items: center; padding: 24px;
+                    background: linear-gradient(135deg, #1e3a8a 0%, #2b52a8 100%);
+                    border-radius: 10px; color: #fff; margin-bottom: 30px; }
+    .profile-avatar { width: 80px; height: 80px; border-radius: 50%;
+                      background: rgba(255,255,255,0.2);
+                      display: flex; align-items: center; justify-content: center;
+                      font-size: 36px; margin-right: 20px; }
+    .profile-info { flex: 1; }
+    .profile-name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
+    .profile-phone { font-size: 14px; opacity: 0.85; }
+    .profile-bind-status { margin-top: 8px; font-size: 13px; opacity: 0.9; }
+    .profile-bind-status .badge { display: inline-block; padding: 2px 8px;
+                                   background: rgba(255,255,255,0.25);
+                                   border-radius: 10px; margin-left: 6px;
+                                   font-size: 12px; }
+
+    /* 信息列表 */
+    .info-list { display: grid; grid-template-columns: 1fr; gap: 0; }
+    .info-item { display: flex; padding: 16px 0;
+                 border-bottom: 1px solid #f5f5f5; align-items: center; }
+    .info-item:last-child { border-bottom: none; }
+    .info-label { width: 140px; color: #999; font-size: 14px; }
+    .info-value { flex: 1; color: #333; font-size: 14px; }
+    .info-action { color: #1e3a8a; font-size: 13px; cursor: pointer; }
+    .info-action:hover { text-decoration: underline; }
+
+    /* 按钮 */
+    .btn-primary { padding: 10px 24px; background: #1e3a8a; color: #fff;
+                   border: none; border-radius: 6px; font-size: 14px;
+                   cursor: pointer; transition: background 0.2s; }
+    .btn-primary:hover { background: #152c6b; }
+    .btn-ghost { padding: 10px 24px; background: #fff; color: #1e3a8a;
+                 border: 1px solid #1e3a8a; border-radius: 6px;
+                 font-size: 14px; cursor: pointer; }
+    .btn-ghost:hover { background: #eef2ff; }
+
+    .footer { background: #262426; color: #999; padding: 40px 0;
+              font-size: 12px; line-height: 2; text-align: center; }
+    .footer a { color: #93c5fd; margin: 0 5px; }
+    </style>
+</head>
+<body>
+
+<header class="top-nav">
+    <a th:href="@{/}" class="logo">
+        <div class="logo-icon">星</div>
+        <div class="logo-text">星幕影票</div>
+    </a>
+    <ul class="main-menu">
+        <li><a th:href="@{/}">首页</a></li>
+        <li><a th:href="@{/}">电影</a></li>
+        <li><a th:href="@{/cinemas}">影院</a></li>
+        <li><a href="#">演出</a></li>
+    </ul>
+    <div class="nav-right">
+        <div class="user-area"></div>
+    </div>
+</header>
+
+<div class="wrap">
+    <!-- 左侧菜单 -->
+    <aside class="side-menu">
+        <div class="menu-item active">个人资料</div>
+        <div class="menu-item">账号安全</div>
+        <div class="menu-item">我的订单</div>
+        <div class="menu-item">优惠券</div>
+        <div class="menu-item">消息通知</div>
+    </aside>
+
+    <!-- 右侧内容 -->
+    <main class="main-content">
+        <div class="content-title">个人资料</div>
+
+        <!-- 用户卡 -->
+        <div class="profile-card">
+            <div class="profile-avatar">👤</div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">星幕用户</div>
+                <div class="profile-phone" id="profilePhone">138****0000</div>
+                <div class="profile-bind-status" id="profileBindStatus">
+                    账号状态：已绑定
+                    <span class="badge">可使用账号密码登录</span>
+                </div>
+            </div>
+            <button class="btn-ghost" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.4);"
+                    onclick="openBindModal()">绑定账号</button>
+        </div>
+
+        <!-- 信息列表 -->
+        <div class="info-list">
+            <div class="info-item">
+                <div class="info-label">用户名</div>
+                <div class="info-value" id="infoUsername">星幕用户</div>
+                <div class="info-action">修改</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">手机号</div>
+                <div class="info-value" id="infoPhone">138****0000</div>
+                <div class="info-action">更换</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">登录密码</div>
+                <div class="info-value" id="infoPwd">已设置</div>
+                <div class="info-action">修改</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">注册时间</div>
+                <div class="info-value" id="infoCreateTime">2026-10-06</div>
+                <div class="info-action"></div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">账号角色</div>
+                <div class="info-value" id="infoRole">普通用户</div>
+                <div class="info-action"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<footer class="footer">
+    <div>关于星幕：<a href="#">关于我们</a> | <a href="#">董事会成员</a></div>
+    <div>©2026 星幕影票 www.starscreen.com</div>
+</footer>
+
+<div th:replace="~{fragments/login-modal :: modal}"></div>
+<div th:replace="~{fragments/login-modal :: bindModal}"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ★ 假数据：真实项目里改成 fetch('/api/user/current')
+    const MOCK_USER = {
+        username: 'alice',
+        phone: '13812345678',
+        createTime: '2026-03-15',
+        role: 'USER',
+        hasPassword: true
+    };
+
+    // 填充
+    document.getElementById('profileName').textContent = MOCK_USER.username;
+    document.getElementById('profilePhone').textContent = maskPhone(MOCK_USER.phone);
+    document.getElementById('infoUsername').textContent = MOCK_USER.username;
+    document.getElementById('infoPhone').textContent = maskPhone(MOCK_USER.phone);
+    document.getElementById('infoPwd').textContent = MOCK_USER.hasPassword ? '已设置' : '未设置（仅手机号登录）';
+    document.getElementById('infoCreateTime').textContent = MOCK_USER.createTime;
+    document.getElementById('infoRole').textContent = MOCK_USER.role === 'ADMIN' ? '管理员' : '普通用户';
+
+    const bindStatus = document.getElementById('profileBindStatus');
+    if (MOCK_USER.hasPassword) {
+        bindStatus.innerHTML = '账号状态：已绑定 <span class="badge">可使用账号密码登录</span>';
+    } else {
+        bindStatus.innerHTML = '账号状态：未绑定 <span class="badge" style="background: rgba(255,193,7,0.4);">请绑定账号密码</span>';
+    }
+
+    // 左侧菜单切换
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
+
+    function maskPhone(phone) {
+        if (!phone || phone.length < 11) return phone;
+        return phone.substring(0, 3) + '****' + phone.substring(7);
+    }
+});
+</script>
+
+</body>
+</html>

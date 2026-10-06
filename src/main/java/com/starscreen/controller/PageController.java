@@ -43,9 +43,23 @@ public class PageController {
         return "PageController 工作正常";
     }
 
-    // ==================== 首页 ====================
+    // ==================== 首页：只展示 8 部 ====================
     @GetMapping("/")
-    public String index(@RequestParam(required = false) String keyword, Model model) {
+    public String index(Model model) {
+        model.addAttribute("boxOfficeList", sidebarService.getDailyBoxOffice());
+        model.addAttribute("expectedList", sidebarService.getExpectedMovies());
+        model.addAttribute("top100List", sidebarService.getTop100Movies());
+
+        List<Movie> showing = movieRepository.findByStatus("showing");
+        List<Movie> upcoming = movieRepository.findByStatus("upcoming");
+        model.addAttribute("showingMovies", showing.size() > 8 ? showing.subList(0, 8) : showing);
+        model.addAttribute("upcomingMovies", upcoming.size() > 8 ? upcoming.subList(0, 8) : upcoming);
+        return "index";
+    }
+
+    // ==================== 电影列表页：Tab + 全部 ====================
+    @GetMapping("/movies")
+    public String movies(@RequestParam(required = false) String keyword, Model model) {
         model.addAttribute("boxOfficeList", sidebarService.getDailyBoxOffice());
         model.addAttribute("expectedList", sidebarService.getExpectedMovies());
         model.addAttribute("top100List", sidebarService.getTop100Movies());
@@ -60,7 +74,7 @@ public class PageController {
             model.addAttribute("upcomingMovies", movieRepository.findByStatus("upcoming"));
             model.addAttribute("isSearching", false);
         }
-        return "index";
+        return "movies";
     }
 
     // ==================== 电影详情 ====================
@@ -76,6 +90,12 @@ public class PageController {
         model.addAttribute("movie", movieRepository.findById(movieId).orElse(null));
         model.addAttribute("schedules", scheduleRepository.findByMovieId(movieId));
         return "cinemas";
+    }
+
+    // ==================== 影院列表页 ====================
+    @GetMapping("/cinemas")
+    public String allCinemas() {
+        return "all-cinemas";
     }
 
     // ==================== 选座 ====================
@@ -125,6 +145,12 @@ public class PageController {
         return "orders";
     }
 
+    // ==================== 个人中心 ====================
+    @GetMapping("/user/profile")
+    public String userProfile() {
+        return "user-profile";
+    }
+
     // ==================== 后台 ====================
     @GetMapping("/admin")
     public String admin(Model model, HttpSession session) {
@@ -158,6 +184,16 @@ public class PageController {
         model.addAttribute("movieId", movieId);
         model.addAttribute("movies", movieRepository.findAll());
         return "admin-schedules";
+    }
+
+    @GetMapping("/admin/orders")
+    public String adminOrders(Model model, HttpSession session) {
+        Object role = session.getAttribute("role");
+        if (!"ADMIN".equals(role)) {
+            model.addAttribute("needAdmin", true);
+            return "admin-orders";
+        }
+        return "admin-orders";
     }
 
     // ==================== 登录页 ====================

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>影院 - 星幕影票</title>
+    <link rel="stylesheet" href="/css/login-modal.css">
+    <script src="/js/auth.js" defer></script>
+    <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
+    a { text-decoration: none; color: inherit; }
+    ul, li { list-style: none; }
+
+    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex;
+               align-items: center; padding: 0 15%; position: sticky; top: 0;
+               background: #fff; z-index: 100; }
+    .logo { display: flex; align-items: center; margin-right: 40px; }
+    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%;
+                 color: #fff; display: flex; justify-content: center; align-items: center;
+                 font-weight: bold; font-size: 18px; margin-right: 10px; }
+    .logo-text { font-size: 20px; font-weight: bold; }
+    .main-menu { display: flex; height: 100%; }
+    .main-menu li a { display: flex; align-items: center; height: 80px;
+                      padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li.active a { color: #1e3a8a; font-weight: bold; }
+    .main-menu li a:hover { color: #1e3a8a; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+    .user-area { display: flex; align-items: center; gap: 20px; }
+    .user-dropdown { position: relative; cursor: pointer; }
+    .user-name { color: #333; font-size: 14px; }
+    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0;
+                     background: #fff; border: 1px solid #e5e5e5; border-radius: 4px;
+                     box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px;
+                     padding: 8px 0; z-index: 1000; }
+    .user-dropdown:hover .dropdown-menu { display: block; }
+    .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; }
+    .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
+
+    .filter-card { background: #fff; border-radius: 8px; padding: 20px 24px;
+                   width: 1200px; margin: 30px auto 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .filter-row { display: flex; align-items: flex-start; margin-bottom: 14px; }
+    .filter-row:last-child { margin-bottom: 0; }
+    .filter-label { width: 80px; flex-shrink: 0; color: #999; font-size: 14px; line-height: 30px; }
+    .filter-options { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+    .filter-option { padding: 5px 14px; border-radius: 15px; cursor: pointer;
+                     font-size: 13px; color: #333; transition: all 0.2s;
+                     border: 1px solid transparent; }
+    .filter-option:hover { background: #f0f4ff; color: #1e3a8a; }
+    .filter-option.active { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+
+    .cinema-list-wrap { width: 1200px; margin: 0 auto 60px; }
+    .cinema-list-head { display: flex; justify-content: space-between;
+                        align-items: center; margin-bottom: 16px; padding: 0 4px; }
+    .cinema-list-title { font-size: 18px; font-weight: bold; color: #1e3a8a;
+                         display: flex; align-items: center; }
+    .cinema-list-title::before { content: ''; display: inline-block; width: 4px;
+                                 height: 18px; background: #1e3a8a;
+                                 margin-right: 10px; border-radius: 2px; }
+    .cinema-count { color: #999; font-size: 13px; }
+
+    .cinema-card { background: #fff; border-radius: 8px; padding: 24px;
+                   margin-bottom: 12px; display: flex; justify-content: space-between;
+                   align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                   transition: box-shadow 0.2s; }
+    .cinema-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .cinema-info { flex: 1; min-width: 0; }
+    .cinema-name { font-size: 17px; font-weight: bold; margin-bottom: 8px; }
+    .cinema-address { font-size: 13px; color: #999; margin-bottom: 12px; }
+    .cinema-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cinema-tag { font-size: 12px; padding: 2px 8px; border-radius: 3px; }
+    .cinema-tag.serve { color: #2b8eff; border: 1px solid #2b8eff; background: #fff; }
+    .cinema-tag.hall { color: #67c23a; border: 1px solid #67c23a; background: #fff; }
+
+    .cinema-buy { text-align: right; margin-left: 20px; flex-shrink: 0; }
+    .cinema-price { font-size: 14px; color: #666; margin-bottom: 6px; }
+    .cinema-price .num { color: #dc2626; font-size: 22px; font-weight: bold; }
+    .cinema-price .unit { font-size: 12px; color: #dc2626; }
+    .cinema-distance { font-size: 12px; color: #999; margin-bottom: 12px; }
+    .buy-btn { display: inline-block; background: #1e3a8a; color: #fff;
+               padding: 8px 24px; border-radius: 4px; font-size: 14px;
+               cursor: pointer; border: none; transition: background 0.2s; }
+    .buy-btn:hover { background: #152c6b; }
+
+    .pagination { display: flex; justify-content: center; align-items: center;
+                  gap: 8px; margin-top: 30px; }
+    .pagination button { padding: 8px 14px; border-radius: 4px;
+                         border: 1px solid #e5e5e5; background: #fff;
+                         cursor: pointer; font-size: 14px; color: #333; }
+    .pagination button:hover:not(:disabled) { border-color: #1e3a8a; color: #1e3a8a; }
+    .pagination button.active { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+    .pagination button:disabled { color: #ccc; cursor: not-allowed; }
+    .pagination .info { color: #999; font-size: 13px; margin: 0 10px; }
+
+    .empty { background: #fff; border-radius: 8px; padding: 80px 0;
+             text-align: center; color: #999; }
+
+    .footer { background: #262426; color: #999; padding: 40px 0;
+              font-size: 12px; line-height: 2; text-align: center; }
+    .footer a { color: #93c5fd; margin: 0 5px; }
+    </style>
+</head>
+<body>
+
+<header class="top-nav">
+    <a th:href="@{/}" class="logo">
+        <div class="logo-icon">星</div>
+        <div class="logo-text">星幕影票</div>
+        <link rel="stylesheet" href="/css/login-modal.css">
+    </a>
+    <ul class="main-menu">
+        <li><a th:href="@{/}">首页</a></li>
+        <li><a th:href="@{/movies}">电影</a></li>
+        <li class="active"><a th:href="@{/cinemas}">影院</a></li>
+    </ul>
+    <div class="nav-right">
+        <div class="user-area"></div>
+    </div>
+</header>
+
+<div class="filter-card">
+    <div class="filter-row">
+        <div class="filter-label">品牌：</div>
+        <div class="filter-options" id="brandFilter">
+            <div class="filter-option active" data-value="">全部</div>
+            <div class="filter-option" data-value="万达">万达影城</div>
+            <div class="filter-option" data-value="金逸">金逸影城</div>
+            <div class="filter-option" data-value="横店">横店影视</div>
+            <div class="filter-option" data-value="CGV">CGV影城</div>
+            <div class="filter-option" data-value="万象">万象影城</div>
+            <div class="filter-option" data-value="其他">其他</div>
+        </div>
+    </div>
+    <div class="filter-row">
+        <div class="filter-label">行政区：</div>
+        <div class="filter-options" id="districtFilter">
+            <div class="filter-option active" data-value="">全部</div>
+            <div class="filter-option" data-value="集美区">集美区</div>
+            <div class="filter-option" data-value="思明区">思明区</div>
+            <div class="filter-option" data-value="湖里区">湖里区</div>
+            <div class="filter-option" data-value="同安区">同安区</div>
+            <div class="filter-option" data-value="海沧区">海沧区</div>
+            <div class="filter-option" data-value="翔安区">翔安区</div>
+        </div>
+    </div>
+    <div class="filter-row">
+        <div class="filter-label">影厅类型：</div>
+        <div class="filter-options" id="hallFilter">
+            <div class="filter-option active" data-value="">全部</div>
+            <div class="filter-option" data-value="IMAX厅">IMAX厅</div>
+            <div class="filter-option" data-value="杜比全景声厅">杜比全景声厅</div>
+            <div class="filter-option" data-value="RealD厅">RealD厅</div>
+            <div class="filter-option" data-value="儿童厅">儿童厅</div>
+            <div class="filter-option" data-value="CINITY厅">CINITY厅</div>
+        </div>
+    </div>
+    <div class="filter-row">
+        <div class="filter-label">影院服务：</div>
+        <div class="filter-options" id="serveFilter">
+            <div class="filter-option active" data-value="">全部</div>
+            <div class="filter-option" data-value="退">可退票</div>
+            <div class="filter-option" data-value="改签">可改签</div>
+            <div class="filter-option" data-value="折扣卡">折扣卡</div>
+        </div>
+    </div>
+</div>
+
+<div class="cinema-list-wrap">
+    <div class="cinema-list-head">
+        <div class="cinema-list-title">影院列表</div>
+        <div class="cinema-count" id="cinemaCount">共 0 家影院</div>
+    </div>
+    <div id="cinemaList"></div>
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<footer class="footer">
+    <div>关于星幕：<a href="#">关于我们</a> | <a href="#">董事会成员</a></div>
+    <div>©2026 星幕影票 www.starscreen.com</div>
+</footer>
+
+<div th:replace="~{fragments/login-modal :: modal}"></div>
+<div th:replace="~{fragments/login-modal :: bindModal}"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ==================== 状态 ====================
+    const PAGE_SIZE = 8;
+    const filterState = { brand: '', district: '', hall: '', serve: '', page: 1 };
+    let allCinemas = [];
+
+    // ==================== 筛选：事件绑定 ====================
+    function bindFilter(filterId, key) {
+        document.querySelectorAll('#' + filterId + ' .filter-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('#' + filterId + ' .filter-option')
+                    .forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                filterState[key] = opt.dataset.value;
+                filterState.page = 1;
+                render();
+            });
+        });
+    }
+    bindFilter('brandFilter', 'brand');
+    bindFilter('districtFilter', 'district');
+    bindFilter('hallFilter', 'hall');
+    bindFilter('serveFilter', 'serve');
+
+    // ==================== 加载数据 ====================
+    function loadCinemas() {
+        // 显示加载中
+        document.getElementById('cinemaList').innerHTML =
+            '<div class="empty">加载中...</div>';
+
+        // 组装 query string
+        let url = '/api/cinemas';
+        const params = [];
+        if (filterState.brand) params.push('brand=' + encodeURIComponent(filterState.brand));
+        if (filterState.district) params.push('district=' + encodeURIComponent(filterState.district));
+        if (params.length > 0) url += '?' + params.join('&');
+
+        fetch(url)
+            .then(res => res.json())
+            .then(result => {
+                if (result.code !== 200) throw new Error(result.message);
+                allCinemas = result.data || [];
+                render();
+            })
+            .catch(err => {
+                console.error('加载影院失败:', err);
+                document.getElementById('cinemaList').innerHTML =
+                    '<div class="empty">加载失败：' + err.message + '</div>';
+            });
+    }
+
+    // ==================== 前端筛选（hall/serve 在前端做）====================
+    function getFiltered() {
+        return allCinemas.filter(c => {
+            // brand / district 已在后端过滤，但前端再保险一遍
+            if (filterState.brand && c.brand !== filterState.brand) return false;
+            if (filterState.district && c.district !== filterState.district) return false;
+
+            // hall 在 tags 里找（简化：cinema.tags 包含 hall 类型）
+            if (filterState.hall) {
+                const tags = (c.tags || '') + ',' + (c.name || '');
+                if (!tags.includes(filterState.hall)) return false;
+            }
+
+            // serve 在 tags 里找
+            if (filterState.serve && !(c.tags || '').includes(filterState.serve)) return false;
+
+            return true;
+        });
+    }
+
+    // ==================== 渲染 ====================
+    function render() {
+        const filtered = getFiltered();
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (filterState.page > totalPages) filterState.page = totalPages;
+
+        const start = (filterState.page - 1) * PAGE_SIZE;
+        const pageList = filtered.slice(start, start + PAGE_SIZE);
+
+        document.getElementById('cinemaCount').textContent = '共 ' + total + ' 家影院';
+
+        const listEl = document.getElementById('cinemaList');
+        if (pageList.length === 0) {
+            listEl.innerHTML = '<div class="empty">没有符合条件的影院</div>';
+            document.getElementById('pagination').innerHTML = '';
+            return;
+        }
+
+        listEl.innerHTML = pageList.map(c => {
+            const tags = (c.tags || '').split(',').filter(t => t);
+            // 起价：先固定用 35，未来可从 schedule 表算 min(price)
+            const price = c.price || 35.0;
+
+            return `
+                <div class="cinema-card">
+                    <div class="cinema-info">
+                        <div class="cinema-name">${escapeHtml(c.name)}</div>
+                        <div class="cinema-address">地址：${escapeHtml(c.address || '-')}</div>
+                        <div class="cinema-tags">
+                            ${tags.map(t => `<span class="cinema-tag serve">${escapeHtml(t)}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="cinema-buy">
+                        <div class="cinema-price">
+                            <span class="num">¥${price.toFixed(1)}</span>
+                            <span class="unit">起</span>
+                        </div>
+                        <div class="cinema-distance">${c.distance != null ? c.distance + 'km' : '-'}</div>
+                        <a class="buy-btn" href="/movies">选座购票</a>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        const pag = document.getElementById('pagination');
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        let html = '';
+        html += `<button ${filterState.page === 1 ? 'disabled' : ''} data-page="${filterState.page - 1}">上一页</button>`;
+
+        let startPage = Math.max(1, filterState.page - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="${i === filterState.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+        }
+
+        html += `<span class="info">共 ${totalPages} 页</span>`;
+        html += `<button ${filterState.page === totalPages ? 'disabled' : ''} data-page="${filterState.page + 1}">下一页</button>`;
+
+        pag.innerHTML = html;
+
+        pag.querySelectorAll('button[data-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = parseInt(btn.dataset.page, 10);
+                if (p < 1 || p > totalPages) return;
+                filterState.page = p;
+                render();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+
+    // ==================== 启动 ====================
+    loadCinemas();
+});
+</script>
+
+</body>
+</html>

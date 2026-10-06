@@ -5,7 +5,8 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 /**
- * 短信验证码登录请求
+ * 【功能】短信验证码登录请求体。
+ *         前端提交：{ "phone": "13812345678", "code": "123456" }
  */
 @Data
 public class SmsLoginRequest {

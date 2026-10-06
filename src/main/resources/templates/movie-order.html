@@ -1,300 +1,344 @@
-﻿<!--
-  【模板】movie-order.html —— 订单支付/取票页
-  【路由】GET /order/{id}
-  【渲染方】PageController.orderDetail(id, model, session) → return "movie-order"
-
-  【Thymeleaf 变量】
-    - order   Order  当前订单（可能为 null）
-    模板通过 order.status 分三种状态渲染：
-      pending   → 倒计时 + 支付/取消按钮
-      paid      → 取票码大卡片
-      cancelled → 已取消提示
-
-  【鉴权】
-    PageController.orderDetail 里：
-      order == null 或 userId != order.userId → redirect:/orders
-    所以未登录/越权用户看不到别人的订单。
-
-  【内嵌 JS 调用】
-    - POST /api/orders/{id}/pay      支付
-    - POST /api/orders/{id}/cancel   取消
-    - POST /api/user/logout          退出登录
-
-  【★ 关键：10 分钟倒计时】
-    - data-create-time 由 Thymeleaf 注入（th:attr 表达式）
-    - createTimeStr.replace(/-/g, '/')  兼容 Safari 的 new Date() 解析
-    - DEADLINE = createTime + 10*60*1000
-    - 倒计时到 0 → 禁用按钮，显示"订单已超时"
-    - 与后端 OrderService.cancelExpiredOrders（每 30 秒扫描）配合
-
-  【⚠️ 已知问题】
-    1. 倒计时与后端 30 秒扫描存在延迟窗口：
-       用户可能看到"已超时"但订单状态仍 pending（最多 30 秒）
-    2. 页面加载时若订单已被后端取消，user 看到 pending 界面点支付才报错
--->
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>支付 - 星幕影票</title>
+    <title>订单管理 - 星幕影票后台</title>
     <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #fff; color: #333; font-size: 14px; }
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
     a { text-decoration: none; color: inherit; }
     ul, li { list-style: none; }
 
-    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; padding: 0 15%; }
+    /* 顶部导航 */
+    .top-nav { height: 80px; border-bottom: 1px solid #e5e5e5; display: flex;
+               align-items: center; padding: 0 15%; position: sticky; top: 0;
+               background: #fff; z-index: 100; }
     .logo { display: flex; align-items: center; margin-right: 40px; }
-    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; margin-right: 10px; }
+    .logo-icon { width: 40px; height: 40px; background: #1e3a8a; border-radius: 50%;
+                 color: #fff; display: flex; justify-content: center; align-items: center;
+                 font-weight: bold; font-size: 18px; margin-right: 10px; }
     .logo-text { font-size: 20px; font-weight: bold; }
     .main-menu { display: flex; height: 100%; }
-    .main-menu li a { display: flex; align-items: center; height: 100%; padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li a { display: flex; align-items: center; height: 80px;
+                      padding: 0 20px; font-size: 16px; color: #333; }
+    .main-menu li.active a { color: #1e3a8a; font-weight: bold; }
+    .main-menu li a:hover { color: #1e3a8a; }
     .nav-right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-    .nav-right > div { cursor: pointer; }
 
     .user-menu { display: flex; align-items: center; gap: 20px; }
     .user-dropdown { position: relative; cursor: pointer; }
     .user-name { color: #333; font-size: 14px; }
-    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e5e5; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px; padding: 8px 0; z-index: 1000; }
+    .dropdown-menu { display: none; position: absolute; top: 100%; right: 0;
+                     background: #fff; border: 1px solid #e5e5e5; border-radius: 4px;
+                     box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-width: 120px;
+                     padding: 8px 0; z-index: 1000; }
     .user-dropdown:hover .dropdown-menu { display: block; }
     .dropdown-menu a { display: block; padding: 10px 20px; font-size: 14px; color: #333; }
     .dropdown-menu a:hover { background: #f5f5f5; color: #1e3a8a; }
 
-    .container { width: 900px; margin: 40px auto 60px; }
+    /* 容器 */
+    .wrap { width: 1300px; margin: 30px auto 60px; }
+    .page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .page-title { font-size: 24px; font-weight: bold; color: #1e3a8a; }
 
-    .tip-box { background: #eef2ff; padding: 20px 30px; border-radius: 4px; display: flex; align-items: center; margin-bottom: 30px; }
-    .tip-icon { font-size: 32px; margin-right: 20px; color: #1e3a8a; }
-    .tip-title { font-size: 18px; color: #1e3a8a; font-weight: bold; margin-bottom: 6px; }
-    .tip-title .num { color: #1e3a8a; font-size: 22px; font-weight: bold; }
-    .tip-sub { font-size: 13px; color: #999; }
-    .tip-box.timeout { background: #f0f0f0; }
-    .tip-box.timeout .tip-icon,
-    .tip-box.timeout .tip-title { color: #999; }
+    /* 状态 Tab */
+    .status-tabs { display: flex; gap: 8px; background: #fff; border-radius: 8px;
+                   padding: 8px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .status-tab { padding: 10px 22px; border-radius: 6px; cursor: pointer;
+                  font-size: 14px; color: #666; transition: all 0.2s; }
+    .status-tab:hover { background: #f8f9ff; color: #1e3a8a; }
+    .status-tab.active { background: #1e3a8a; color: #fff; font-weight: bold; }
 
-    .warning { color: #ff9800; font-size: 13px; margin-bottom: 15px; }
+    /* 搜索框 */
+    .search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+    .search-bar input { flex: 1; height: 40px; border: 1px solid #e5e5e5;
+                        border-radius: 6px; padding: 0 15px; font-size: 14px; outline: none; }
+    .search-bar input:focus { border-color: #1e3a8a; }
+    .search-bar button { height: 40px; padding: 0 24px; background: #1e3a8a;
+                         color: #fff; border: none; border-radius: 6px;
+                         font-size: 14px; cursor: pointer; }
+    .search-bar button:hover { background: #152c6b; }
 
-    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-    .info-table th { background: #fafafa; padding: 12px; font-weight: normal; color: #999; font-size: 14px; text-align: center; border-bottom: 1px solid #e5e5e5; }
-    .info-table td { padding: 20px 12px; text-align: center; font-size: 14px; }
+    /* 表格 */
+    .table-card { background: #fff; border-radius: 8px; padding: 20px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+    th { text-align: left; padding: 14px 12px; color: #999; font-weight: normal;
+         font-size: 13px; border-bottom: 2px solid #f0f0f0; white-space: nowrap; }
+    td { padding: 16px 12px; border-bottom: 1px solid #f5f5f5; font-size: 14px; }
+    tr:last-child td { border-bottom: none; }
 
-    .total-row { text-align: right; font-size: 16px; margin-bottom: 30px; }
-    .total-row .num { color: #1e3a8a; font-size: 30px; font-weight: bold; }
-    .total-row .num::before { content: '¥'; font-size: 18px; }
+    .order-no { font-family: Consolas, monospace; font-size: 13px; color: #666; }
+    .movie-title { font-weight: bold; }
+    .seats { color: #999; font-size: 13px; }
+    .price { color: #1e3a8a; font-weight: bold; }
 
-    .btn-row { display: flex; justify-content: center; gap: 15px; }
-    .pay-btn { background: #1e3a8a; color: #fff; padding: 14px 80px; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; }
-    .pay-btn:hover { background: #152c6b; }
-    .pay-btn:disabled { background: #ccc; cursor: not-allowed; }
-    .cancel-btn { background: #fff; color: #666; padding: 14px 40px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; cursor: pointer; }
-    .cancel-btn:hover { border-color: #1e3a8a; color: #1e3a8a; }
-    .cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { display: inline-block; padding: 3px 10px; border-radius: 3px; font-size: 12px; }
+    .status.pending   { background: #fff3e0; color: #ff9800; }
+    .status.paid      { background: #e8f5e9; color: #43a047; }
+    .status.cancelled { background: #f5f5f5; color: #999; }
 
-    .paid-card { border: 2px dashed #43a047; background: #f0fff4; border-radius: 8px; padding: 40px; text-align: center; margin-bottom: 30px; }
-    .paid-card .check-icon { font-size: 48px; color: #43a047; margin-bottom: 15px; }
-    .paid-card .paid-title { font-size: 20px; color: #2e7d32; font-weight: bold; margin-bottom: 10px; }
-    .paid-card .ticket-label { font-size: 14px; color: #43a047; margin-bottom: 10px; }
-    .paid-card .ticket-code { font-size: 40px; letter-spacing: 6px; font-weight: bold; color: #2e7d32; margin-bottom: 15px; }
-    .paid-card .paid-sub { font-size: 13px; color: #888; }
+    .op-btn { display: inline-block; padding: 5px 12px; border-radius: 3px;
+              font-size: 13px; cursor: pointer; border: none; margin-right: 6px; }
+    .op-btn.view { background: #eef2ff; color: #1e3a8a; }
+    .op-btn.view:hover { background: #dbe4ff; }
+    .op-btn.cancel { background: #fef0f0; color: #dc2626; }
+    .op-btn.cancel:hover { background: #fee2e2; }
 
-    .back-orders { text-align: center; margin-top: 20px; }
-    .back-orders a { display: inline-block; background: #fff; color: #1e3a8a; border: 1px solid #1e3a8a; padding: 10px 30px; border-radius: 4px; font-size: 14px; }
+    /* 分页 */
+    .pagination { display: flex; justify-content: center; align-items: center;
+                  gap: 8px; margin-top: 20px; }
+    .pagination button { padding: 8px 14px; border-radius: 4px;
+                         border: 1px solid #e5e5e5; background: #fff;
+                         cursor: pointer; font-size: 14px; }
+    .pagination button:hover:not(:disabled) { border-color: #1e3a8a; color: #1e3a8a; }
+    .pagination button.active { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+    .pagination button:disabled { color: #ccc; cursor: not-allowed; }
+    .pagination .info { color: #999; font-size: 13px; margin: 0 10px; }
 
-    .footer { background: #262426; color: #999; padding: 40px 0; font-size: 12px; line-height: 2; text-align: center; }
-    .footer a { color: #1e3a8a; }
-</style>
+    .footer { background: #262426; color: #999; padding: 40px 0;
+              font-size: 12px; line-height: 2; text-align: center; }
+    </style>
 </head>
 <body>
 
 <header class="top-nav">
-    <!-- ... 顶部导航与 orders.html 一致 ... -->
-</header>
-
-<!-- ★ 关键：把 order.id 和 order.createTime 注入 data-* 属性，供 JS 读取 -->
-<div class="container" th:if="${order != null}"
-     th:attr="data-order-id=${order.id},
-              data-create-time=${order.createTime}"
-     id="orderWrap">
-
-    <!-- ==================== 待支付状态 ==================== -->
-    <div th:if="${order.status == 'pending'}">
-        <!-- 倒计时区 -->
-        <div class="tip-box" id="tipBox">
-            <div class="tip-icon">⏳</div>
-            <div>
-                <div class="tip-title" id="tipTitle">请在 <span class="num" id="countdown">10:00</span> 内完成支付</div>
-                <div class="tip-sub">超时订单会自动取消，如遇支付问题，请致电客服：1010-5335</div>
+    <div class="logo">
+        <div class="logo-icon">星</div>
+        <div class="logo-text">星幕影票 · 后台</div>
+    </div>
+    <ul class="main-menu">
+        <li><a th:href="@{/admin}">数据概览</a></li>
+        <li><a th:href="@{/admin/movies}">电影管理</a></li>
+        <li><a th:href="@{/admin/schedules}">场次管理</a></li>
+        <li class="active"><a th:href="@{/admin/orders}">订单管理</a></li>
+    </ul>
+    <div class="nav-right">
+        <div th:if="${session.username != null}" class="user-menu">
+            <div class="user-dropdown">
+                <span class="user-name">👤 <span th:text="${session.username}">用户名</span> ▼</span>
+                <div class="dropdown-menu">
+                    <a th:href="@{/admin}">后台管理</a>
+                    <a href="javascript:void(0)" id="logoutBtn">退出登录</a>
+                </div>
             </div>
         </div>
+    </div>
+</header>
 
-        <div class="warning">⚠️ 请仔细核对场次信息，出票后将无法退票和改签</div>
+<div class="wrap">
+    <div class="page-head">
+        <div class="page-title">订单管理</div>
+    </div>
 
-        <!-- 订单信息表 -->
-        <table class="info-table">
+    <!-- 状态 Tab -->
+    <div class="status-tabs">
+        <div class="status-tab active" data-status="">全部</div>
+        <div class="status-tab" data-status="pending">待支付</div>
+        <div class="status-tab" data-status="paid">已支付</div>
+        <div class="status-tab" data-status="cancelled">已取消</div>
+    </div>
+
+    <!-- 搜索 -->
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索订单号 / 电影名 / 用户名">
+        <button id="searchBtn">搜索</button>
+    </div>
+
+    <!-- 表格 -->
+    <div class="table-card">
+        <table>
             <thead>
-            <tr><th>影片</th><th>时间</th><th>影院</th><th>座位</th></tr>
+                <tr>
+                    <th style="width:180px;">订单号</th>
+                    <th>电影</th>
+                    <th style="width:140px;">场次</th>
+                    <th style="width:120px;">座位</th>
+                    <th style="width:100px;">金额</th>
+                    <th style="width:100px;">状态</th>
+                    <th style="width:160px;">下单时间</th>
+                    <th style="width:140px;">操作</th>
+                </tr>
             </thead>
-            <tbody>
-            <tr>
-                <td>《<span th:text="${order.movieTitle}">-</span>》</td>
-                <td th:text="${order.showTime}">-</td>
-                <td th:text="${order.cinemaName}">-</td>
-                <td th:text="${order.seats}">-</td>
-            </tr>
-            </tbody>
+            <tbody id="orderTableBody"></tbody>
         </table>
-
-        <div class="total-row">实际支付：<span class="num" th:text="${order.totalPrice}">0</span></div>
-
-        <!-- 按钮：id 供 JS 绑定 -->
-        <div class="btn-row">
-            <button class="cancel-btn" id="cancelBtn">取消订单</button>
-            <button class="pay-btn" id="payBtn">确认支付</button>
-        </div>
-    </div>
-
-    <!-- ==================== 已支付状态 ==================== -->
-    <div th:if="${order.status == 'paid'}">
-        <div class="paid-card">
-            <div class="check-icon">✓</div>
-            <div class="paid-title">支付成功</div>
-            <div class="ticket-label">取 票 码</div>
-            <div class="ticket-code" th:text="${order.ticketCode}">ABCD-1234</div>
-            <div class="paid-sub">请凭取票码到影院自助取票机取票</div>
-        </div>
-
-        <table class="info-table">
-            <!-- 同上 -->
-        </table>
-
-        <div class="total-row">已支付：<span class="num" th:text="${order.totalPrice}">0</span></div>
-
-        <div class="back-orders">
-            <a th:href="@{/orders}">查看我的订单</a>
-        </div>
-    </div>
-
-    <!-- ==================== 已取消状态 ==================== -->
-    <div th:if="${order.status == 'cancelled'}" style="text-align:center;padding:60px 0;color:#999;">
-        <div style="font-size:48px;margin-bottom:20px;">✕</div>
-        <div style="font-size:20px;">订单已取消</div>
-        <div class="back-orders">
-            <a th:href="@{/orders}">返回我的订单</a>
-        </div>
+        <div class="pagination" id="pagination"></div>
     </div>
 </div>
 
-<!-- 订单不存在兜底 -->
-<div class="container" th:if="${order == null}" style="text-align:center;padding:80px 0;color:#999;">
-    订单不存在，<a th:href="@{/}" style="color:#1e3a8a;">返回首页</a>
-</div>
-
-<footer class="footer"><!-- ... --></footer>
+<footer class="footer">
+    <div>©2026 星幕影票 www.starscreen.com</div>
+</footer>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const wrap = document.getElementById('orderWrap');
-    if (!wrap) return;   // 订单不存在时直接返回
 
-    // ===== 从 data-* 读取 Thymeleaf 注入的值 =====
-    const orderId = wrap.dataset.orderId;
-    const createTimeStr = wrap.dataset.createTime;
-    const payBtn = document.getElementById('payBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
+    // ==================== 假数据：50 条订单 ====================
+    const MOVIES = ['八仙！', '空枪', '欢迎来龙餐馆', '奥德赛', '复仇者联盟4：终局之战', '鸳鸯楼底', '痴迷', '蜘蛛侠：崭新之日'];
+    const CINEMAS = ['厦门华侨大学店', '厦门万象城店', '厦门万达影城（集美店）', '厦门金逸影城（SM店）'];
+    const STATUSES = ['pending', 'paid', 'cancelled'];
 
-    // ==================== 10 分钟倒计时 ====================
-    const countdownEl = document.getElementById('countdown');
-    const tipBox = document.getElementById('tipBox');
-    const tipTitle = document.getElementById('tipTitle');
-
-    if (countdownEl && createTimeStr) {
-        // Safari 不认 "yyyy-MM-dd HH:mm:ss"，必须把 - 换成 /
-        const safeTimeStr = createTimeStr.replace(/-/g, '/');
-        const createTime = new Date(safeTimeStr).getTime();
-        const DEADLINE = createTime + 10 * 60 * 1000;   // 10 分钟
-        let timer = null;
-
-        function updateCountdown() {
-            const now = Date.now();
-            const remain = DEADLINE - now;
-
-            if (remain <= 0) {
-                // 超时：停表 + 禁用按钮
-                clearInterval(timer);
-                countdownEl.textContent = '00:00';
-                tipBox.classList.add('timeout');
-                tipTitle.innerHTML = '订单已超时';
-                if (payBtn) { payBtn.disabled = true; payBtn.textContent = '订单已超时'; }
-                if (cancelBtn) cancelBtn.disabled = true;
-                return;
-            }
-
-            // 格式化 mm:ss
-            const totalSec = Math.floor(remain / 1000);
-            const min = String(Math.floor(totalSec / 60)).padStart(2, '0');
-            const sec = String(totalSec % 60).padStart(2, '0');
-            countdownEl.textContent = min + ':' + sec;
-        }
-
-        updateCountdown();                    // 立即执行一次
-        timer = setInterval(updateCountdown, 1000);   // 每秒刷新
-    }
-
-    // ==================== 支付 ====================
-    if (payBtn) {
-        payBtn.addEventListener('click', function () {
-            payBtn.disabled = true;
-            payBtn.textContent = '支付中...';
-            if (cancelBtn) cancelBtn.disabled = true;
-
-            fetch('/api/orders/' + orderId + '/pay', { method: 'POST' })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.code !== 200) throw new Error(result.message);
-                    // 成功 → 刷新页面，此时 status='paid'，渲染取票码
-                    window.location.reload();
-                })
-                .catch(err => {
-                    alert(err.message);
-                    payBtn.disabled = false;
-                    payBtn.textContent = '确认支付';
-                    if (cancelBtn) cancelBtn.disabled = false;
-                });
+    const MOCK_ORDERS = [];
+    for (let i = 1; i <= 50; i++) {
+        const st = i % 5 === 0 ? 'cancelled' : (i % 3 === 0 ? 'pending' : 'paid');
+        MOCK_ORDERS.push({
+            id: i,
+            orderNo: 'MO2026' + String(100000 + i),
+            movieTitle: MOVIES[i % MOVIES.length],
+            cinemaName: CINEMAS[i % CINEMAS.length],
+            showTime: '2026-10-' + String((i % 28) + 1).padStart(2, '0') + ' 19:30',
+            seats: (i % 5 + 1) + '排' + (i % 10 + 1) + '座',
+            totalPrice: 35.0 + (i % 3) * 5,
+            status: st,
+            createTime: '2026-10-' + String((i % 28) + 1).padStart(2, '0') + ' 14:' + String(i % 60).padStart(2, '0') + ':00'
         });
     }
 
-    // ==================== 取消（无确认弹窗，直接执行）====================
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', function () {
-            cancelBtn.disabled = true;
-            cancelBtn.textContent = '取消中...';
-            if (payBtn) payBtn.disabled = true;
+    // 状态
+    const state = { status: '', keyword: '', page: 1 };
+    const PAGE_SIZE = 10;
 
-            fetch('/api/orders/' + orderId + '/cancel', { method: 'POST' })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.code !== 200) throw new Error(result.message);
-                    window.location.reload();   // 刷新显示"已取消"
-                })
-                .catch(err => {
-                    alert(err.message);
-                    cancelBtn.disabled = false;
-                    cancelBtn.textContent = '取消订单';
-                    if (payBtn) payBtn.disabled = false;
-                });
+    // ==================== 事件绑定 ====================
+    document.querySelectorAll('.status-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            state.status = tab.dataset.status;
+            state.page = 1;
+            render();
         });
-    }
+    });
 
-    // ==================== 退出登录 ====================
+    document.getElementById('searchBtn').addEventListener('click', () => {
+        state.keyword = document.getElementById('searchInput').value.trim();
+        state.page = 1;
+        render();
+    });
+
+    document.getElementById('searchInput').addEventListener('keypress', e => {
+        if (e.key === 'Enter') document.getElementById('searchBtn').click();
+    });
+
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', function () {
+        logoutBtn.addEventListener('click', () => {
             if (!confirm('确定要退出登录吗？')) return;
             fetch('/api/user/logout', { method: 'POST' })
-                .then(res => res.json())
                 .then(() => { window.location.href = '/'; })
                 .catch(() => { window.location.href = '/'; });
         });
     }
+
+    // ==================== 过滤 ====================
+    function getFiltered() {
+        return MOCK_ORDERS.filter(o => {
+            if (state.status && o.status !== state.status) return false;
+            if (state.keyword) {
+                const kw = state.keyword.toLowerCase();
+                if (!o.orderNo.toLowerCase().includes(kw) &&
+                    !o.movieTitle.toLowerCase().includes(kw)) return false;
+            }
+            return true;
+        });
+    }
+
+    // ==================== 渲染 ====================
+    function render() {
+        const filtered = getFiltered();
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (state.page > totalPages) state.page = totalPages;
+
+        const start = (state.page - 1) * PAGE_SIZE;
+        const pageList = filtered.slice(start, start + PAGE_SIZE);
+
+        const tbody = document.getElementById('orderTableBody');
+        if (pageList.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:60px;">暂无订单数据</td></tr>';
+            document.getElementById('pagination').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = pageList.map(o => `
+            <tr>
+                <td class="order-no">${escapeHtml(o.orderNo)}</td>
+                <td class="movie-title">${escapeHtml(o.movieTitle)}</td>
+                <td>
+                    <div>${escapeHtml(o.cinemaName)}</div>
+                    <div class="seats">${escapeHtml(o.showTime)}</div>
+                </td>
+                <td class="seats">${escapeHtml(o.seats)}</td>
+                <td class="price">¥${o.totalPrice.toFixed(2)}</td>
+                <td><span class="status ${o.status}">${statusText(o.status)}</span></td>
+                <td class="seats">${escapeHtml(o.createTime)}</td>
+                <td>
+                    <button class="op-btn view" data-action="view" data-id="${o.id}">查看</button>
+                    ${o.status === 'pending' ? `<button class="op-btn cancel" data-action="cancel" data-id="${o.id}">取消</button>` : ''}
+                </td>
+            </tr>
+        `).join('');
+
+        // 事件绑定
+        tbody.querySelectorAll('.op-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id, 10);
+                if (btn.dataset.action === 'view') {
+                    alert('订单详情（待开发）：ID=' + id);
+                } else if (btn.dataset.action === 'cancel') {
+                    if (confirm('确定要取消该订单吗？')) {
+                        const order = MOCK_ORDERS.find(o => o.id === id);
+                        if (order) order.status = 'cancelled';
+                        render();
+                    }
+                }
+            });
+        });
+
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        const pag = document.getElementById('pagination');
+        if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+        let html = '';
+        html += `<button ${state.page === 1 ? 'disabled' : ''} data-page="${state.page - 1}">上一页</button>`;
+
+        let startPage = Math.max(1, state.page - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="${i === state.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+        }
+
+        html += `<span class="info">共 ${totalPages} 页</span>`;
+        html += `<button ${state.page === totalPages ? 'disabled' : ''} data-page="${state.page + 1}">下一页</button>`;
+
+        pag.innerHTML = html;
+
+        pag.querySelectorAll('button[data-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = parseInt(btn.dataset.page, 10);
+                if (p < 1 || p > totalPages) return;
+                state.page = p;
+                render();
+            });
+        });
+    }
+
+    function statusText(s) {
+        return { pending: '待支付', paid: '已支付', cancelled: '已取消' }[s] || s;
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+
+    render();
 });
 </script>
 

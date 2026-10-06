@@ -18,7 +18,13 @@ public class UserController {
     private final UserService userService;
     private final SmsService smsService;
 
-    /** 账号密码登录（仅限已绑定密码的用户） */
+    /** 注册 */
+    @PostMapping("/register")
+    public Result<UserVO> register(@RequestBody @Valid RegisterRequest req) {
+        return Result.success(UserVO.from(userService.register(req)));
+    }
+
+    /** 账号密码登录 */
     @PostMapping("/login")
     public Result<UserVO> login(@RequestBody @Valid LoginRequest req, HttpSession session) {
         User user = userService.login(req);
@@ -26,7 +32,7 @@ public class UserController {
         return Result.success(UserVO.from(user));
     }
 
-    /** 短信验证码登录（首次注册的唯一入口） */
+    /** 短信验证码登录 */
     @PostMapping("/login-sms")
     public Result<UserVO> loginBySms(@RequestBody @Valid SmsLoginRequest req, HttpSession session) {
         smsService.verifyCode(req.getPhone(), req.getCode());
@@ -35,23 +41,31 @@ public class UserController {
         return Result.success(UserVO.from(user));
     }
 
-    /** 发送短信验证码 */
+    /**
+     * ★ 发送短信验证码。
+     * 【返回】Result<String>：data 是验证码（仅演示环境）
+     */
     @PostMapping("/send-sms")
-    public Result<Void> sendSms(@RequestBody @Valid SendSmsRequest req) {
-        smsService.sendCode(req.getPhone());
-        return Result.success();
+    public Result<String> sendSms(@RequestBody @Valid SendSmsRequest req) {
+        String code = smsService.sendCode(req.getPhone());
+        return Result.success(code);
     }
 
-    /**
-     * ★ 绑定账号密码（已用手机号登录的用户）。
-     * 【调用方】个人中心页面，登录后可访问。
-     */
+    /** 绑定账号密码 */
     @PostMapping("/bind-account")
     public Result<UserVO> bindAccount(@RequestBody @Valid BindAccountRequest req, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) return Result.error(401, "请先登录");
         User user = userService.bindAccount(userId, req);
         return Result.success(UserVO.from(user));
+    }
+
+    /** 重置密码 */
+    @PostMapping("/reset-password")
+    public Result<Void> resetPassword(@RequestBody @Valid ResetPasswordRequest req) {
+        smsService.verifyCode(req.getPhone(), req.getCode());
+        userService.resetPassword(req.getPhone(), req.getNewPassword());
+        return Result.success();
     }
 
     /** 登出 */
@@ -74,31 +88,10 @@ public class UserController {
         return Result.success(UserVO.from(user));
     }
 
-    /** 保留旧接口，仅供测试/内部使用 */
-    @PostMapping("/register")
-    public Result<UserVO> register(@RequestBody @Valid RegisterRequest req) {
-        return Result.success(UserVO.from(userService.register(req)));
-    }
-
+    /** 统一写 Session */
     private void writeSession(HttpSession session, User user) {
         session.setAttribute("userId", user.getId());
         session.setAttribute("username", user.getUsername());
         session.setAttribute("role", user.getRole() != null ? user.getRole() : "USER");
-    }
-    
-    /**
-     * 【功能】重置密码（忘记密码）。
-     * 【调用链】login.html → 忘记密码弹窗 → POST /api/user/reset-password
-     * 【流程】
-     *   1. 校验手机验证码（SmsService）
-     *   2. 更新密码（UserService）
-     */
-    @PostMapping("/reset-password")
-    public Result<Void> resetPassword(@RequestBody @Valid ResetPasswordRequest req) {
-        // 先校验验证码
-        smsService.verifyCode(req.getPhone(), req.getCode());
-        // 再重置密码
-        userService.resetPassword(req.getPhone(), req.getNewPassword());
-        return Result.success();
     }
 }

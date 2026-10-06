@@ -14,7 +14,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(loginInterceptor)
-                .addPathPatterns("/api/**")           // ★ 只拦 API
+                .addPathPatterns("/api/**")
                 .excludePathPatterns(
                         "/api/user/login",
                         "/api/user/register",
@@ -24,7 +24,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/user/current",
                         "/api/seats/**",
                         "/api/movies/**",
-                        "/api/schedules/**"
+                        "/api/schedules/**",
+                        "/api/cinemas/**"          // ★ 注意：前面这行末尾必须加逗号
                 );
     }
 }

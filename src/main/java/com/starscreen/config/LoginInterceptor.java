@@ -43,7 +43,8 @@ public class LoginInterceptor implements HandlerInterceptor {
                 || uri.startsWith("/api/user/current")
                 || uri.startsWith("/api/seats/")
                 || uri.startsWith("/api/movies")
-                || uri.startsWith("/api/schedules")) {
+                || uri.startsWith("/api/schedules")
+                || uri.startsWith("/api/cinemas")) {
             return true;
         }
 
