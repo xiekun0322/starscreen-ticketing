@@ -41,10 +41,7 @@ public class UserController {
         return Result.success(UserVO.from(user));
     }
 
-    /**
-     * ★ 发送短信验证码。
-     * 【返回】Result<String>：data 是验证码（仅演示环境）
-     */
+    /** 发送短信验证码（返回验证码，仅演示环境） */
     @PostMapping("/send-sms")
     public Result<String> sendSms(@RequestBody @Valid SendSmsRequest req) {
         String code = smsService.sendCode(req.getPhone());
@@ -68,6 +65,27 @@ public class UserController {
         return Result.success();
     }
 
+    /** 修改密码 */
+    @PostMapping("/change-password")
+    public Result<Void> changePassword(@RequestBody @Valid ChangePasswordRequest req,
+                                        HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) return Result.error(401, "请先登录");
+        userService.changePassword(userId, req.getOldPassword(), req.getNewPassword());
+        return Result.success();
+    }
+
+    /** ★ 注销账号（软删除） */
+    @PostMapping("/delete-account")
+    public Result<Void> deleteAccount(@RequestBody @Valid DeleteAccountRequest req,
+                                       HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) return Result.error(401, "请先登录");
+        userService.deleteAccount(userId, req.getPassword());
+        session.invalidate();
+        return Result.success();
+    }
+
     /** 登出 */
     @PostMapping("/logout")
     public Result<Void> logout(HttpSession session) {
@@ -81,7 +99,7 @@ public class UserController {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) return Result.error(401, "未登录");
         User user = userService.getById(userId);
-        if (user == null) {
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) {
             session.invalidate();
             return Result.error(401, "登录已失效");
         }

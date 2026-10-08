@@ -11,8 +11,12 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private LoginInterceptor loginInterceptor;
 
+    @Autowired
+    private AdminInterceptor adminInterceptor;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 1. 登录拦截
         registry.addInterceptor(loginInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
@@ -25,7 +29,11 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/seats/**",
                         "/api/movies/**",
                         "/api/schedules/**",
-                        "/api/cinemas/**"          // ★ 注意：前面这行末尾必须加逗号
+                        "/api/cinemas/**"
                 );
+
+        // 2. ★ 管理员拦截（在登录拦截之后）
+        registry.addInterceptor(adminInterceptor)
+                .addPathPatterns("/api/admin/**", "/admin/**");
     }
 }

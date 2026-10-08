@@ -29,4 +29,8 @@ public class User {
     /** ★ 角色：USER / ADMIN */
     @Column(length = 20)
     private String role;
+    
+    /** ★ 软删除标记：0=正常，1=已注销 */
+    @Column(nullable = false)
+    private Boolean deleted = false;
 }

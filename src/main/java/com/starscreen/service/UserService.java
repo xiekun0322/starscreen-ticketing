@@ -3,6 +3,7 @@ package com.starscreen.service;
 import com.starscreen.common.BusinessException;
 import com.starscreen.dto.BindAccountRequest;
 import com.starscreen.dto.LoginRequest;
+import com.starscreen.dto.RegisterRequest;
 import com.starscreen.entity.User;
 import com.starscreen.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,38 +26,37 @@ public class UserService {
 
     private final UserRepository userRepository;
 
-    /**
-     * 【功能】手机号登录或自动注册。
-     * 【规则】
-     *   - 手机号存在 → 直接返回该用户
-     *   - 手机号不存在 → 自动创建新用户（用户名 = "用户" + 手机后4位，无密码）
-     * 【说明】新用户首次注册必须用手机号，这是唯一入口。
-     */
+    // ==================== 注册 ====================
+
     @Transactional
-    public User loginOrRegisterByPhone(String phone) {
-        return userRepository.findByPhone(phone).orElseGet(() -> {
-            User user = new User();
-            user.setUsername("用户" + phone.substring(7));
-            user.setPassword("");    // 无密码，只能用手机号登录
-            user.setPhone(phone);
-            user.setCreateTime(LocalDateTime.now().format(DTF));
-            user.setRole("USER");
-            User saved = userRepository.save(user);
-            log.info("手机号自动注册：id={}, phone={}", saved.getId(), phone);
-            return saved;
-        });
+    public User register(RegisterRequest req) {
+        if (userRepository.existsByUsernameAndDeletedFalse(req.getUsername())) {
+            throw new BusinessException("用户名已存在");
+        }
+        if (req.getPhone() != null && !req.getPhone().isEmpty()
+                && userRepository.existsByPhoneAndDeletedFalse(req.getPhone())) {
+            throw new BusinessException("手机号已存在");
+        }
+
+        User user = new User();
+        user.setUsername(req.getUsername());
+        user.setPassword(PASSWORD_ENCODER.encode(req.getPassword()));
+        user.setPhone(req.getPhone());
+        user.setCreateTime(LocalDateTime.now().format(DTF));
+        user.setRole("USER");
+        user.setDeleted(false);
+
+        user = userRepository.save(user);
+        log.info("用户注册成功：id={}, username={}", user.getId(), user.getUsername());
+        return user;
     }
 
-    /**
-     * 【功能】账号密码登录。
-     * 【前提】用户必须已经绑定过密码（password 非空）。
-     * 【异常】未绑定密码 → "该账号未绑定密码，请使用手机号验证码登录"
-     */
+    // ==================== 账号密码登录 ====================
+
     public User login(LoginRequest req) {
-        User user = userRepository.findByUsername(req.getUsername())
+        User user = userRepository.findByUsernameAndDeletedFalse(req.getUsername())
                 .orElseThrow(() -> new BusinessException("用户名或密码错误"));
 
-        // 未绑定密码的账号 → 提示用手机号登录
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
             throw new BusinessException("该账号未绑定密码，请使用手机号验证码登录");
         }
@@ -69,14 +69,27 @@ public class UserService {
         return user;
     }
 
-    /**
-     * 【功能】绑定账号密码（已用手机号登录的用户，在个人中心绑定）。
-     * 【调用链】UserController.bindAccount(userId, req)
-     * 【异常】
-     *   - 用户名已被占用
-     *   - 已绑定过密码（避免重复绑定；如需改密走"修改密码"接口）
-     *   - 用户不存在
-     */
+    // ==================== 手机号登录/自动注册 ====================
+
+    @Transactional
+    public User loginOrRegisterByPhone(String phone) {
+        return userRepository.findByPhoneAndDeletedFalse(phone).orElseGet(() -> {
+            User user = new User();
+            user.setUsername("用户" + phone.substring(7));
+            user.setPassword("");
+            user.setPhone(phone);
+            user.setCreateTime(LocalDateTime.now().format(DTF));
+            user.setRole("USER");
+            user.setDeleted(false);
+
+            User saved = userRepository.save(user);
+            log.info("手机号自动注册：id={}, phone={}", saved.getId(), phone);
+            return saved;
+        });
+    }
+
+    // ==================== 绑定账号密码 ====================
+
     @Transactional
     public User bindAccount(Long userId, BindAccountRequest req) {
         User user = userRepository.findById(userId)
@@ -86,7 +99,7 @@ public class UserService {
             throw new BusinessException("该账号已绑定密码，请直接使用账号密码登录");
         }
 
-        if (userRepository.existsByUsername(req.getUsername())) {
+        if (userRepository.existsByUsernameAndDeletedFalse(req.getUsername())) {
             throw new BusinessException("用户名已被占用");
         }
 
@@ -98,50 +111,11 @@ public class UserService {
         return user;
     }
 
-    // ==================== 兼容旧接口（保留，供已有代码调用） ====================
+    // ==================== 重置密码 ====================
 
-    /**
-     * 【保留】传统注册（用户名 + 密码）。
-     * 【说明】不在 UI 上暴露，仍保留给测试或内部使用。
-     */
-    @Transactional
-    public User register(com.starscreen.dto.RegisterRequest req) {
-        if (userRepository.existsByUsername(req.getUsername())) {
-            throw new BusinessException("用户名已存在");
-        }
-        if (req.getPhone() != null && !req.getPhone().isEmpty()
-                && userRepository.findByPhone(req.getPhone()).isPresent()) {
-            throw new BusinessException("手机号已存在");
-        }
-        User user = new User();
-        user.setUsername(req.getUsername());
-        user.setPassword(PASSWORD_ENCODER.encode(req.getPassword()));
-        user.setPhone(req.getPhone());
-        user.setCreateTime(LocalDateTime.now().format(DTF));
-        user.setRole("USER");
-        return userRepository.save(user);
-    }
-
-    public User getById(Long id) {
-        return userRepository.findById(id).orElse(null);
-    }
-    
-    /**
-     * 【功能】重置密码（忘记密码场景）。
-     * 【前提】手机号必须已注册。
-     * 【调用链】
-     *   UserController.resetPassword(@Valid ResetPasswordRequest)
-     *   → POST /api/user/reset-password
-     *   → UserService.resetPassword(phone, code, newPassword)
-     *   → smsService.verifyCode(phone, code)   // Controller 里先校验
-     *   → 更新 password 为 BCrypt hash
-     * 【异常】
-     *   - "该手机号未注册"
-     *   - "验证码错误/已过期"（由 SmsService 抛出）
-     */
     @Transactional
     public User resetPassword(String phone, String newPassword) {
-        User user = userRepository.findByPhone(phone)
+        User user = userRepository.findByPhoneAndDeletedFalse(phone)
                 .orElseThrow(() -> new BusinessException("该手机号未注册"));
 
         user.setPassword(PASSWORD_ENCODER.encode(newPassword));
@@ -149,5 +123,69 @@ public class UserService {
 
         log.info("用户重置密码：id={}, phone={}", user.getId(), phone);
         return user;
+    }
+
+    // ==================== 修改密码 ====================
+
+    /**
+     * 【功能】修改密码。
+     * 【校验】
+     *   1. 用户存在
+     *   2. 已设置密码
+     *   3. 原密码正确
+     *   4. ★ 新密码不能与原密码相同
+     */
+    @Transactional
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
+
+        // 1. 是否设置过密码
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            throw new BusinessException("该账号未设置密码，请先绑定账号");
+        }
+
+        // 2. 原密码是否正确
+        if (!PASSWORD_ENCODER.matches(oldPassword, user.getPassword())) {
+            throw new BusinessException("原密码错误");
+        }
+
+        // 3. ★ 新密码不能与原密码相同
+        if (PASSWORD_ENCODER.matches(newPassword, user.getPassword())) {
+            throw new BusinessException("新密码不能与原密码相同");
+        }
+
+        // 4. 更新密码
+        user.setPassword(PASSWORD_ENCODER.encode(newPassword));
+        userRepository.save(user);
+        log.info("用户修改密码成功：id={}", userId);
+    }
+
+    // ==================== 注销账号（软删除）====================
+
+    @Transactional
+    public void deleteAccount(Long userId, String password) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
+
+        if (user.getDeleted() != null && user.getDeleted()) {
+            throw new BusinessException("该账号已注销");
+        }
+
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            if (!PASSWORD_ENCODER.matches(password, user.getPassword())) {
+                throw new BusinessException("密码错误");
+            }
+        }
+
+        user.setDeleted(true);
+        userRepository.save(user);
+        log.info("用户注销账号（软删除）：id={}, username={}", userId, user.getUsername());
+    }
+
+    // ==================== 查询 ====================
+
+    public User getById(Long id) {
+        return userRepository.findById(id).orElse(null);
     }
 }

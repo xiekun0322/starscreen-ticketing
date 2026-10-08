@@ -1,10 +1,22 @@
 /**
  * 【功能】全局登录态 + 弹窗 + apiFetch 包装器。
- * 【改动】"发送验证码"改成：后端返回验证码 → alert 显示 → 自动填入
+ *
+ * 【本次改动】
+ *   updateNavUI 里，"后台管理"菜单只对 role=ADMIN 的用户显示。
+ *
+ * 【暴露】
+ *   window.currentUser
+ *   window.openLoginModal() / closeLoginModal()
+ *   window.openBindModal() / closeBindModal()
+ *   window.apiFetch(url, opts)
+ *   window.doLogout()
+ *   window.refreshCurrentUser()
  */
+
 (function () {
     'use strict';
 
+    // ==================== 登录态 ====================
     window.currentUser = null;
 
     window.refreshCurrentUser = function () {
@@ -22,10 +34,19 @@
             });
     };
 
+    // ==================== 顶部导航 ====================
     function updateNavUI() {
         const navRight = document.querySelector('.nav-right .user-area');
         if (!navRight) return;
+
         if (window.currentUser) {
+            const role = window.currentUser.role || 'USER';
+
+            // ★ 只有 ADMIN 才显示"后台管理"
+            const adminLink = (role === 'ADMIN')
+                ? '<a href="/admin">后台管理</a>'
+                : '';
+
             navRight.innerHTML =
                 '<a href="/orders" style="color:#1e3a8a;margin-right:16px;font-size:14px;">🎟️ 我的订单</a>' +
                 '<div class="user-dropdown">' +
@@ -33,7 +54,7 @@
                     '<div class="dropdown-menu">' +
                         '<a href="/user/profile">个人中心</a>' +
                         '<a href="/orders">我的订单</a>' +
-                        '<a href="/admin">后台管理</a>' +
+                        adminLink +
                         '<a href="javascript:void(0)" onclick="openBindModal()">绑定账号</a>' +
                         '<a href="javascript:void(0)" onclick="doLogout()">退出登录</a>' +
                     '</div>' +
@@ -46,6 +67,7 @@
     }
 
     function escapeHtml(s) {
+        if (s == null) return '';
         return String(s).replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         }[c]));
@@ -104,6 +126,7 @@
         });
     };
 
+    // ==================== 退出登录 ====================
     window.doLogout = function () {
         if (!confirm('确定要退出登录吗？')) return;
         fetch('/api/user/logout', { method: 'POST', credentials: 'same-origin' })
@@ -189,7 +212,6 @@
         smsPhone.addEventListener('input', () => { checkSend(); checkSms(); });
         smsCode.addEventListener('input', checkSms);
 
-        // ★ 发送验证码：后端返回 code → alert 显示 → 自动填入
         sendBtn.addEventListener('click', () => {
             const phone = smsPhone.value.trim();
             if (!/^1[3-9]\d{9}$/.test(phone)) { showMsg('手机号格式错误', 'error'); return; }
@@ -205,8 +227,6 @@
             .then(res => {
                 if (res.code !== 200) throw new Error(res.message);
                 const code = res.data;
-
-                // ★ 弹窗显示验证码
                 alert('【演示环境】\n您的验证码是：' + code + '\n\n已自动填入。');
                 smsCode.value = code;
                 checkSms();
@@ -268,6 +288,7 @@
     function bindBindModalEvents() {
         const modal = document.getElementById('bindAccountModal');
         if (!modal) return;
+
         const bindUser = document.getElementById('bindUsername');
         const bindPwd = document.getElementById('bindPassword');
         const bindConfirm = document.getElementById('bindConfirm');
@@ -302,13 +323,13 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username: username, password: password })
             })
             .then(r => r.json())
             .then(res => {
                 if (res.code !== 200) throw new Error(res.message);
                 showBindMsg('绑定成功，正在刷新...', 'success');
-                setTimeout(() => window.location.reload(), 800);
+                setTimeout(() => { window.location.reload(); }, 800);
             })
             .catch(err => {
                 showBindMsg(err.message || '绑定失败', 'error');

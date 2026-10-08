@@ -201,4 +201,9 @@ public class PageController {
     public String login() {
         return "login";
     }
+    
+    @GetMapping("/user/security")
+    public String userSecurity() {
+        return "user-security";
+    }
 }

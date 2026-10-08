@@ -5,6 +5,16 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+/**
+ * 【功能】重置密码请求。
+ *         用户在登录页点「忘记密码？」→ 手机验证码校验通过后提交。
+ *
+ * 【调用链】
+ *   login.html → 忘记密码弹窗 → POST /api/user/reset-password
+ *   → UserController.resetPassword(@Valid ResetPasswordRequest)
+ *   → SmsService.verifyCode(phone, code)    // 校验验证码
+ *   → UserService.resetPassword(phone, newPassword)
+ */
 @Data
 public class ResetPasswordRequest {
 
